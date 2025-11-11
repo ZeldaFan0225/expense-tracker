@@ -153,8 +153,8 @@ export function DashboardShell({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="text-xs"
-                  onClick={() => signOut({ callbackUrl: "/" })}
+                  className="text-xs !rounded-tr-full !rounded-br-full"
+                  onClick={() => signOut({ redirectTo: "/" })}
                 >
                   Sign out
                 </Button>
