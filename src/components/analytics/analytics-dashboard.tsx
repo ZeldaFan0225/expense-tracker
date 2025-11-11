@@ -425,6 +425,34 @@ function ForecastCard({
 }
 
 function IncomeFlowCard({ flow, currency }: { flow: IncomeFlow; currency: string }) {
+  const [isCompact, setIsCompact] = React.useState(false)
+
+  React.useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return
+    const media = window.matchMedia("(max-width: 1024px)")
+    const updateMatch = () => setIsCompact(media.matches)
+    updateMatch()
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", updateMatch)
+      return () => media.removeEventListener("change", updateMatch)
+    }
+    media.addListener(updateMatch)
+    return () => media.removeListener(updateMatch)
+  }, [])
+
+  const sankeyMargin = React.useMemo(
+    () =>
+      isCompact
+        ? { top: 24, right: 24, bottom: 80, left: 24 }
+        : { top: 16, right: 120, bottom: 16, left: 150 },
+    [isCompact]
+  )
+  const sankeyLayout = isCompact ? "vertical" : "horizontal"
+  const sankeyPadding = isCompact ? 28 : 48
+  const sankeyNodeWidth = isCompact ? 14 : 18
+  const linkCurvature = isCompact ? 0.35 : 0.5
+  const chartHeight = isCompact ? "34rem" : "30rem"
+
   return (
     <Card className="rounded-3xl">
       <CardHeader>
@@ -434,15 +462,16 @@ function IncomeFlowCard({ flow, currency }: { flow: IncomeFlow; currency: string
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="h-[30rem]">
+        <div className="w-full" style={{ height: chartHeight }}>
           {flow.links.length ? (
             <ResponsiveContainer width="100%" height="100%">
               <Sankey
                 data={{ nodes: flow.nodes, links: flow.links }}
-                nodePadding={48}
-                nodeWidth={18}
-                linkCurvature={0.5}
-                margin={{ top: 16, left: 150, right: 120, bottom: 16 }}
+                nodePadding={sankeyPadding}
+                nodeWidth={sankeyNodeWidth}
+                linkCurvature={linkCurvature}
+                layout={sankeyLayout}
+                margin={sankeyMargin}
                 node={<ThemedSankeyNode />}
               >
                 <Tooltip

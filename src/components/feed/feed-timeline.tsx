@@ -64,9 +64,9 @@ export function FeedTimeline({
                       {event.items.map((item) => (
                         <div
                           key={item.id}
-                          className="flex items-center justify-between gap-4 text-xs"
+                          className="flex w-full flex-col gap-2 text-xs sm:flex-row sm:items-center sm:gap-4"
                         >
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <p className="truncate font-semibold text-foreground">
                               {item.title}
                             </p>
@@ -75,7 +75,7 @@ export function FeedTimeline({
                             ) : null}
                           </div>
                           {typeof item.amount === "number" ? (
-                            <p className="font-semibold text-rose-500">
+                            <p className="shrink-0 text-right font-semibold text-rose-500 sm:text-left">
                               {formatCurrency(item.amount, currency)}
                             </p>
                           ) : null}

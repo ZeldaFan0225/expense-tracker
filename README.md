@@ -50,6 +50,25 @@ AGENTS.md               # Full product specification and rebuild guide
 - **Data ingest** – CSV routes now support preview (`/api/import/preview`), structured JSON import (`/api/import/rows`), bank templates, inline edits, bulk edit bar, and scheduled reminders, all surfaced in `/import`.
 - **UX shell** – `DashboardShell` adds quick actions, mobile pills, and command palette. `/feed` renders a unified timeline. `/settings` syncs default currency plus accent color. Smart suggestions power `/items`.
 
+## Current status (May 2025)
+
+### Security posture
+- AES-256-GCM helpers wrap every monetary or descriptive Prisma write, keeping sensitive fields encrypted at rest while still searchable by metadata.
+- NextAuth + Prisma adapter with GitHub OAuth issues database-backed sessions, and every API route funnels through `authenticateRequest` + in-memory token buckets so both session traffic and scoped API keys are rate limited uniformly.
+- API keys use bcrypt (12 rounds) for hashing, only expose the raw value once, and the automation worker revokes anything past its `expiresAt`, reducing the blast radius of leaked secrets.
+- Middleware-level headers (HSTS, frame busting, Permissions Policy, DNS prefetch control, reference policy) reduce common web exploit vectors without relying on page-level components.
+- Zod validation guards every service boundary, so Prisma never sees untyped or over-sized payloads.
+
+### Known gaps
+- The current CSP still allows `'unsafe-inline'` and `'unsafe-eval'` for scripts/styles to keep legacy components running; plan to migrate remaining inline scripts and tighten the directives to eliminate XSS-friendly allowances.
+- CSV import endpoints buffer the full upload (`csv-parse` + `File.arrayBuffer`) without MIME or size caps, so keep uploads reasonable until streaming + server-side validation lands.
+- Rate limiting is process-local memory; clustered deployments or serverless scaling should front the app with a shared limiter (Redis, Fly Replay, or a WAF) to keep abuse controls consistent.
+
+### Operational notes
+- The codebase matches the AGENTS contract (Next.js 16 / React 19 / Tailwind CSS 4) and is ready for production hardening as of May 2025.
+- `src/lib/automation/startup.ts` spawns a long-lived worker per server process; set `AUTOMATION_DISABLED=1` if your platform forbids forked children.
+- The worker currently executes through `tsx`, so keep dev dependencies installed in production or transpile `automation-worker.ts` ahead of deployment.
+
 ## API additions
 | Endpoint | Method(s) | Scope | Notes |
 |----------|-----------|-------|-------|
@@ -81,6 +100,15 @@ All endpoints still respect API keys + scopes (see `src/lib/api-auth.ts`) and ra
 - Keep encrypted fields serialized via `serializeEncrypted` before writing.
 - Add new API endpoints under `src/app/api/*`, leveraging `authenticateRequest` + `handleApiError` for consistent auth/rate-limit responses.
 - Tailwind v4 runs via `@theme inline`; custom colors live in `src/app/globals.css` (including `--user-accent`).
+
+## Production deployment
+1. **Configure environment variables** – set `DATABASE_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `GITHUB_CLIENT_ID/SECRET`, `ENCRYPTION_KEY` (base64 32 bytes), and optional automation knobs (`AUTOMATION_INTERVAL_MS`, `AUTOMATION_RESTART_DELAY_MS`, `AUTOMATION_DISABLED`). Keep `NEXT_USE_TURBOPACK=0` for reproducible builds.
+2. **Install dependencies** – run `npm ci` (skip `--omit=dev` unless you bundle the automation worker ahead of time, because it relies on `tsx`).
+3. **Generate the Prisma client** – `npx prisma generate` so the runtime can talk to your database schema.
+4. **Apply migrations** – `npx prisma migrate deploy` against production (or `prisma db push` for non-critical environments) to ensure tables match `prisma/schema.prisma`.
+5. **Build Next.js** – `NEXT_USE_TURBOPACK=0 npm run build` to emit the `.next` production bundle.
+6. **Start the server** – launch with `NODE_ENV=production npm run start` behind your process manager (systemd, PM2, Docker, etc.); Next.js will automatically run the automation worker unless `AUTOMATION_DISABLED=1`.
+7. **Smoke test** – sign in via GitHub, create an expense, run `npx prisma studio` or check logs to ensure recurring materialization + API key revocation jobs are ticking.
 
 ## Troubleshooting
 - **`@prisma/client did not initialize`** – run `npx prisma generate` after editing `schema.prisma`.

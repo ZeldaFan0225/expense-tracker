@@ -127,7 +127,9 @@ export function DashboardShell({
             <div>
               <p className="text-sm font-semibold text-foreground">{heading}</p>
               {description ? (
-                <p className="text-xs text-muted-foreground">{description}</p>
+                <p className="hidden text-xs text-muted-foreground sm:block">
+                  {description}
+                </p>
               ) : null}
             </div>
           </div>
@@ -135,16 +137,6 @@ export function DashboardShell({
           <div className="flex items-center gap-2">
             {actions}
             <ThemeToggle />
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="md:hidden gap-2"
-              onClick={() => setPaletteOpen(true)}
-            >
-              Quick actions
-              <kbd className="rounded border px-2 py-0.5 text-xs">⌘K</kbd>
-            </Button>
             {user ? (
               <div className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
                 <span className="font-medium">
@@ -153,7 +145,7 @@ export function DashboardShell({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="text-xs !rounded-tr-full !rounded-br-full"
+                  className="text-xs"
                   onClick={() => signOut({ redirectTo: "/" })}
                 >
                   Sign out
