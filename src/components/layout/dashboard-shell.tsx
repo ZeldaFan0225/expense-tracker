@@ -41,31 +41,36 @@ export function DashboardShell({
         label: "New expense",
         description: "Open the bulk builder",
         href: "/items",
-        shortcut: "N",
+        shortcutKey: "n",
+        shortcutCode: "KeyN",
       },
       {
         label: "Analytics",
         description: "Jump to insights dashboard",
         href: "/analytics",
-        shortcut: "A",
+        shortcutKey: "a",
+        shortcutCode: "KeyA",
       },
       {
         label: "Import CSV",
         description: "Preview and ingest files",
         href: "/import",
-        shortcut: "I",
+        shortcutKey: "i",
+        shortcutCode: "KeyI",
       },
       {
         label: "Generate API key",
         description: "Manage secure tokens",
         href: "/api-keys",
-        shortcut: "K",
+        shortcutKey: "k",
+        shortcutCode: "KeyK",
       },
       {
         label: "Activity feed",
         description: "Chronological ledger",
         href: "/feed",
-        shortcut: "F",
+        shortcutKey: "f",
+        shortcutCode: "KeyF",
       },
     ],
     []
@@ -89,7 +94,10 @@ export function DashboardShell({
 
       if (event.altKey && event.shiftKey) {
         const action = quickActions.find(
-          (item) => item.shortcut?.toLowerCase() === event.key.toLowerCase()
+          (item) =>
+            item.shortcutCode
+              ? item.shortcutCode === event.code
+              : item.shortcutKey?.toLowerCase() === event.key.toLowerCase()
         )
         if (action) {
           event.preventDefault()
@@ -131,10 +139,11 @@ export function DashboardShell({
               type="button"
               size="sm"
               variant="outline"
-              className="md:hidden"
+              className="md:hidden gap-2"
               onClick={() => setPaletteOpen(true)}
             >
               Quick actions
+              <kbd className="rounded border px-2 py-0.5 text-xs">⌘K</kbd>
             </Button>
             {user ? (
               <div className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
@@ -173,7 +182,7 @@ type PaletteAction = {
   label: string
   description: string
   href: string
-  shortcut?: string
+  shortcutKey?: string
 }
 
 function CommandPalette({
@@ -222,9 +231,9 @@ function CommandPalette({
                           {action.description}
                         </p>
                       </div>
-                      {action.shortcut ? (
+                      {action.shortcutKey ? (
                         <kbd className="rounded border px-2 py-1 text-xs text-muted-foreground">
-                          {formatShortcut(action.shortcut)}
+                          {formatShortcut(action.shortcutKey)}
                         </kbd>
                       ) : null}
                     </button>
@@ -243,6 +252,6 @@ function CommandPalette({
   )
 }
 
-function formatShortcut(shortcut: string) {
-  return `⌥⇧ ${shortcut.toUpperCase()}`
+function formatShortcut(key: string) {
+  return `⌥⇧ ${key.toUpperCase()}`
 }

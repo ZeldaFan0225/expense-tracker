@@ -87,10 +87,10 @@ export function AppSidebar({
           <button
             type="button"
             onClick={onQuickActionsClick}
-            className="w-full rounded-2xl border border-sidebar-border/60 bg-gradient-to-r from-emerald-400/90 to-cyan-500/90 px-4 py-3 text-left text-sm font-semibold text-sidebar-foreground shadow-sm"
+            className="w-full rounded-2xl border border-sidebar-border/50 bg-sidebar/80 px-4 py-2 text-left text-sm font-semibold text-sidebar-foreground shadow-sm transition hover:border-sidebar-border"
           >
             Quick actions
-            <span className="ml-2 rounded border border-white/50 bg-white/20 px-2 py-0.5 text-[10px] text-white">
+            <span className="ml-2 rounded border border-sidebar-border/60 px-2 py-0.5 text-sm font-semibold text-sidebar-foreground/80">
               ⌘K
             </span>
           </button>
