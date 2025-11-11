@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
+import { useToast } from "@/components/providers/toast-provider"
 
 const currencyOptions = ["USD", "EUR", "GBP", "CAD", "AUD", "INR", "JPY", "SGD"]
 
@@ -20,15 +21,12 @@ export function UserSettingsForm({
 }: UserSettingsFormProps) {
   const [currency, setCurrency] = React.useState(defaultCurrency)
   const [accent, setAccent] = React.useState(accentColor ?? "#0ea5e9")
-  const [status, setStatus] = React.useState<string | null>(null)
-  const [error, setError] = React.useState<string | null>(null)
   const [saving, setSaving] = React.useState(false)
+  const { showToast } = useToast()
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     setSaving(true)
-    setStatus(null)
-    setError(null)
     try {
       const response = await fetch("/api/settings", {
         method: "PATCH",
@@ -42,12 +40,20 @@ export function UserSettingsForm({
         const data = await response.json()
         throw new Error(data.error ?? "Failed to update settings")
       }
-      setStatus("Settings updated. Reload to sync across sessions.")
       if (accent) {
         document.documentElement.style.setProperty("--user-accent", accent)
       }
+      showToast({
+        title: "Preferences saved",
+        description: "Reload to sync across sessions.",
+        variant: "success",
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update settings")
+      showToast({
+        title: "Failed to update settings",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setSaving(false)
     }
@@ -101,8 +107,6 @@ export function UserSettingsForm({
           <Button type="submit" disabled={saving}>
             {saving ? "Saving…" : "Save preferences"}
           </Button>
-          {status ? <p className="text-sm text-emerald-600">{status}</p> : null}
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
         </form>
       </CardContent>
     </Card>

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { useToast } from "@/components/providers/toast-provider"
 
 const formSchema = z.object({
   id: z.string().optional(),
@@ -28,7 +29,7 @@ type CategoryManagerProps = {
 export function CategoryManager({ categories }: CategoryManagerProps) {
   const [items, setItems] = React.useState(categories)
   const [loadingId, setLoadingId] = React.useState<string | null>(null)
-  const [error, setError] = React.useState<string | null>(null)
+  const { showToast } = useToast()
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -38,7 +39,6 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
   })
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    setError(null)
     try {
       const response = await fetch("/api/categories", {
         method: "POST",
@@ -47,8 +47,10 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
       })
       if (!response.ok) throw new Error("Failed to save category")
       const category = await response.json()
+      let updated = false
       setItems((prev) => {
         const exists = prev.some((item) => item.id === category.id)
+        updated = exists
         return exists
           ? prev.map((item) => (item.id === category.id ? category : item))
           : [category, ...prev]
@@ -57,22 +59,37 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
         name: "",
         color: "#0ea5e9",
       })
+      showToast({
+        title: updated ? "Category updated" : "Category created",
+        description: category.name,
+        variant: "success",
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save category")
+      showToast({
+        title: "Failed to save category",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
   const deleteCategory = async (id: string) => {
     setLoadingId(id)
-    setError(null)
     try {
       const response = await fetch(`/api/categories/${id}`, {
         method: "DELETE",
       })
       if (!response.ok) throw new Error("Failed to delete category")
       setItems((prev) => prev.filter((item) => item.id !== id))
+      showToast({
+        title: "Category deleted",
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete category")
+      showToast({
+        title: "Failed to delete category",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setLoadingId(null)
     }
@@ -100,7 +117,6 @@ export function CategoryManager({ categories }: CategoryManagerProps) {
             </Button>
           </div>
         </form>
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <ul className="grid gap-3 md:grid-cols-2">
           {items.map((category) => (
             <li

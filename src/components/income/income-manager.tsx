@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { format } from "date-fns"
 import { formatCurrency } from "@/lib/currency"
+import { useToast } from "@/components/providers/toast-provider"
 
 const formSchema = z.object({
   description: z.string().min(1),
@@ -34,8 +35,7 @@ export function IncomeManager({
   currency = "USD",
 }: IncomeManagerProps) {
   const [items, setItems] = React.useState(entries)
-  const [message, setMessage] = React.useState<string | null>(null)
-  const [error, setError] = React.useState<string | null>(null)
+  const { showToast } = useToast()
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -46,8 +46,6 @@ export function IncomeManager({
   })
 
   const onSubmit = async (values: FormValues) => {
-    setMessage(null)
-    setError(null)
     try {
       const response = await fetch("/api/income", {
         method: "POST",
@@ -66,9 +64,17 @@ export function IncomeManager({
         amount: "",
         occurredOn: new Date().toISOString().split("T")[0],
       })
-      setMessage("Income recorded")
+      showToast({
+        title: "Income recorded",
+        description: income.description,
+        variant: "success",
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to record income")
+      showToast({
+        title: "Failed to record income",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -100,11 +106,6 @@ export function IncomeManager({
             </Button>
           </div>
         </form>
-        {message ? (
-          <p className="text-sm text-emerald-600">{message}</p>
-        ) : null}
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-
         <div className="rounded-2xl border p-4">
           <p className="text-sm font-semibold">Recent entries</p>
           <ul className="mt-3 divide-y text-sm">

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { formatCurrency } from "@/lib/currency"
+import { useToast } from "@/components/providers/toast-provider"
 
 type RecurringTemplate = {
   id: string
@@ -48,8 +49,7 @@ export function RecurringManager({
 }: RecurringManagerProps) {
   const [items, setItems] = React.useState(templates)
   const [loadingId, setLoadingId] = React.useState<string | null>(null)
-  const [message, setMessage] = React.useState<string | null>(null)
-  const [error, setError] = React.useState<string | null>(null)
+  const { showToast } = useToast()
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -63,8 +63,6 @@ export function RecurringManager({
   })
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    setMessage(null)
-    setError(null)
     try {
       const response = await fetch("/api/recurring", {
         method: "POST",
@@ -81,15 +79,22 @@ export function RecurringManager({
       const template = await response.json()
       setItems((prev) => [template, ...prev])
       form.reset()
-      setMessage("Recurring expense created")
+      showToast({
+        title: "Recurring expense created",
+        description: "New template ready to auto-post.",
+        variant: "success",
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create")
+      showToast({
+        title: "Failed to create template",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
   const toggleTemplate = async (id: string) => {
     setLoadingId(id)
-    setError(null)
     try {
       const response = await fetch(`/api/recurring/${id}`, {
         method: "PUT",
@@ -97,8 +102,16 @@ export function RecurringManager({
       if (!response.ok) throw new Error("Failed to toggle")
       const template = await response.json()
       setItems((prev) => prev.map((item) => (item.id === id ? template : item)))
+      showToast({
+        title: template.isActive ? "Template resumed" : "Template paused",
+        description: template.description,
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to toggle template")
+      showToast({
+        title: "Failed to update template",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setLoadingId(null)
     }
@@ -106,15 +119,22 @@ export function RecurringManager({
 
   const deleteTemplate = async (id: string) => {
     setLoadingId(id)
-    setError(null)
     try {
       const response = await fetch(`/api/recurring/${id}`, {
         method: "DELETE",
       })
       if (!response.ok) throw new Error("Failed to delete")
       setItems((prev) => prev.filter((item) => item.id !== id))
+      showToast({
+        title: "Recurring template removed",
+        variant: "default",
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete template")
+      showToast({
+        title: "Failed to delete template",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setLoadingId(null)
     }
@@ -173,12 +193,6 @@ export function RecurringManager({
               </Button>
             </div>
           </form>
-          {message ? (
-            <p className="mt-2 text-sm text-emerald-600">{message}</p>
-          ) : null}
-          {error ? (
-            <p className="mt-2 text-sm text-destructive">{error}</p>
-          ) : null}
         </CardContent>
       </Card>
 

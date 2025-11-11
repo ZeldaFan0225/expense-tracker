@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select } from "@/components/ui/select"
 import { ImportPreviewTable, type PreviewRow } from "@/components/import/import-preview-table"
+import { useToast } from "@/components/providers/toast-provider"
 
 const templateOptions = [
   { value: "default", label: "Default (columns: date, description, category, amount)" },
@@ -20,15 +21,15 @@ export function CsvImportForm() {
   const [rows, setRows] = React.useState<PreviewRow[]>([])
   const [previewing, setPreviewing] = React.useState(false)
   const [importing, setImporting] = React.useState(false)
-  const [message, setMessage] = React.useState<string | null>(null)
-  const [error, setError] = React.useState<string | null>(null)
+  const { showToast } = useToast()
 
   const handlePreview = async (event: React.FormEvent) => {
     event.preventDefault()
-    setMessage(null)
-    setError(null)
     if (!file) {
-      setError("Select a CSV file first.")
+      showToast({
+        title: "Select a CSV file first",
+        variant: "destructive",
+      })
       return
     }
     const formData = new FormData()
@@ -46,8 +47,17 @@ export function CsvImportForm() {
         throw new Error(data.error ?? "Preview failed")
       }
       setRows(data.rows ?? [])
+      showToast({
+        title: "Preview ready",
+        description: `${data.rows?.length ?? 0} row(s) detected`,
+        variant: "success",
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Preview failed")
+      showToast({
+        title: "Preview failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setPreviewing(false)
     }
@@ -55,8 +65,6 @@ export function CsvImportForm() {
 
   const handleImport = async () => {
     setImporting(true)
-    setError(null)
-    setMessage(null)
     try {
       const response = await fetch("/api/import/rows", {
         method: "POST",
@@ -67,11 +75,19 @@ export function CsvImportForm() {
       if (!response.ok) {
         throw new Error(data.error ?? "Import failed")
       }
-      setMessage(`Imported ${data.imported} records`)
       setRows([])
       setFile(null)
+      showToast({
+        title: "Import complete",
+        description: `Imported ${data.imported} record(s)`,
+        variant: "success",
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Import failed")
+      showToast({
+        title: "Import failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setImporting(false)
     }
@@ -152,10 +168,6 @@ export function CsvImportForm() {
           </p>
         )}
 
-        {message ? (
-          <p className="text-sm text-emerald-600">{message}</p>
-        ) : null}
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
       </CardContent>
     </Card>
   )

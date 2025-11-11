@@ -105,14 +105,11 @@ function ToastCard({
   toast: ToastRecord
   onDismiss: (id: string) => void
 }) {
-  const variantStyles: Record<ToastVariant, string> = {
-    default:
-      "border-slate-200/60 bg-gradient-to-r from-slate-900/80 via-slate-900/90 to-slate-900/80 text-white shadow-indigo-500/10 dark:border-slate-700/60",
-    success:
-      "border-emerald-300/70 bg-gradient-to-r from-emerald-500/90 to-teal-500/90 text-white shadow-emerald-500/30",
-    destructive:
-      "border-rose-300/70 bg-gradient-to-r from-rose-600/90 to-orange-600/90 text-white shadow-rose-600/40",
-  }
+const variantStyles: Record<ToastVariant, string> = {
+  default: "border-border bg-background/95 text-foreground shadow-lg",
+  success: "border-emerald-500/60 bg-background text-foreground shadow-emerald-200/30",
+  destructive: "border-red-500/60 bg-background text-foreground shadow-red-200/30",
+}
 
   return (
     <div

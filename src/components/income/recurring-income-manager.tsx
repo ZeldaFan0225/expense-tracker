@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { formatCurrency } from "@/lib/currency"
+import { useToast } from "@/components/providers/toast-provider"
 
 const formSchema = z.object({
   description: z.string().min(1),
@@ -35,7 +36,7 @@ export function RecurringIncomeManager({
 }: RecurringIncomeManagerProps) {
   const [items, setItems] = React.useState(templates)
   const [loadingId, setLoadingId] = React.useState<string | null>(null)
-  const [error, setError] = React.useState<string | null>(null)
+  const { showToast } = useToast()
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -46,7 +47,6 @@ export function RecurringIncomeManager({
   })
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    setError(null)
     try {
       const response = await fetch("/api/income/recurring", {
         method: "POST",
@@ -65,22 +65,37 @@ export function RecurringIncomeManager({
         amount: "",
         dueDayOfMonth: "1",
       })
+      showToast({
+        title: "Recurring income added",
+        description: template.description,
+        variant: "success",
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create template")
+      showToast({
+        title: "Failed to create template",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
   const deleteTemplate = async (id: string) => {
     setLoadingId(id)
-    setError(null)
     try {
       const response = await fetch(`/api/income/recurring/${id}`, {
         method: "DELETE",
       })
       if (!response.ok) throw new Error("Failed to delete template")
       setItems((prev) => prev.filter((item) => item.id !== id))
+      showToast({
+        title: "Recurring income removed",
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete template")
+      showToast({
+        title: "Failed to delete template",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setLoadingId(null)
     }
@@ -111,8 +126,6 @@ export function RecurringIncomeManager({
             </Button>
           </div>
         </form>
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-
         <div className="divide-y rounded-2xl border">
           {items.length === 0 ? (
             <p className="p-4 text-sm text-muted-foreground">

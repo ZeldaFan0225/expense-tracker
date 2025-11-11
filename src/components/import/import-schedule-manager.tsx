@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
+import { useToast } from "@/components/providers/toast-provider"
 
 const frequencyOptions = [
   { value: "weekly", label: "Weekly" },
@@ -40,7 +41,7 @@ export function ImportScheduleManager({ initialSchedules }: ImportScheduleManage
     sourceUrl: "",
   })
   const [saving, setSaving] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
+  const { showToast } = useToast()
 
   const handleChange = (key: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -49,7 +50,6 @@ export function ImportScheduleManager({ initialSchedules }: ImportScheduleManage
   const handleCreate = async (event: React.FormEvent) => {
     event.preventDefault()
     setSaving(true)
-    setError(null)
     try {
       const response = await fetch("/api/import/schedules", {
         method: "POST",
@@ -60,8 +60,17 @@ export function ImportScheduleManager({ initialSchedules }: ImportScheduleManage
       if (!response.ok) throw new Error(data.error ?? "Failed to create schedule")
       setSchedules((prev) => [data.schedule, ...prev])
       setForm({ name: "", mode: "expenses", template: "default", frequency: "monthly", sourceUrl: "" })
+      showToast({
+        title: "Schedule created",
+        description: data.schedule.name,
+        variant: "success",
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create schedule")
+      showToast({
+        title: "Failed to create schedule",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setSaving(false)
     }
@@ -71,6 +80,16 @@ export function ImportScheduleManager({ initialSchedules }: ImportScheduleManage
     const response = await fetch(`/api/import/schedules/${id}`, { method: "DELETE" })
     if (response.ok) {
       setSchedules((prev) => prev.filter((schedule) => schedule.id !== id))
+      showToast({
+        title: "Schedule deleted",
+      })
+    } else {
+      const data = await response.json()
+      showToast({
+        title: "Failed to delete schedule",
+        description: data.error ?? "Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -81,6 +100,15 @@ export function ImportScheduleManager({ initialSchedules }: ImportScheduleManage
     const data = await response.json()
     if (response.ok) {
       setSchedules((prev) => prev.map((schedule) => (schedule.id === id ? data.schedule : schedule)))
+      showToast({
+        title: "Schedule marked as run",
+      })
+    } else {
+      showToast({
+        title: "Failed to mark run",
+        description: data.error ?? "Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -143,7 +171,6 @@ export function ImportScheduleManager({ initialSchedules }: ImportScheduleManage
           <Button type="submit" disabled={saving}>
             {saving ? "Saving…" : "Create schedule"}
           </Button>
-          {error ? <p className="text-xs text-destructive">{error}</p> : null}
         </form>
 
         <div className="space-y-3">

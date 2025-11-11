@@ -103,7 +103,6 @@ export function ApiKeysManager({ keys }: ApiKeysManagerProps) {
     keys.map(serializeKeyRecord)
   )
   const [token, setToken] = React.useState<string | null>(null)
-  const [error, setError] = React.useState<string | null>(null)
   const { showToast } = useToast()
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -116,7 +115,6 @@ export function ApiKeysManager({ keys }: ApiKeysManagerProps) {
   const selectedScopes = form.watch("scopes")
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    setError(null)
     setToken(null)
     try {
       const payload = {
@@ -138,13 +136,22 @@ export function ApiKeysManager({ keys }: ApiKeysManagerProps) {
         description: "",
         expiresAt: "",
       })
+      showToast({
+        title: "API key created",
+        description: "Copy the token now—this is the only time it is shown.",
+        variant: "success",
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create key")
+      const message = err instanceof Error ? err.message : "Failed to create key"
+      showToast({
+        title: "Unable to create API key",
+        description: message,
+        variant: "destructive",
+      })
     }
   }
 
   const handleKeyAction = async (item: ApiKeyRecord) => {
-    setError(null)
     try {
       const response = await fetch(`/api/api-keys/${item.id}`, {
         method: "DELETE",
@@ -173,7 +180,6 @@ export function ApiKeysManager({ keys }: ApiKeysManagerProps) {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update key"
-      setError(message)
       showToast({
         title: "Unable to update API key",
         description: message,
@@ -256,8 +262,6 @@ export function ApiKeysManager({ keys }: ApiKeysManagerProps) {
             </code>
           </div>
         ) : null}
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-
         <div className="space-y-3">
           {items.map((item) => {
             const createdLabel = formatDate(item.createdAt)

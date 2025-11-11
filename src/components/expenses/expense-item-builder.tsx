@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useToast } from "@/components/providers/toast-provider"
 
 type Category = {
   id: string
@@ -49,8 +50,7 @@ export function ExpenseItemBuilder({
   categories,
   suggestions,
 }: ExpenseItemBuilderProps) {
-  const [message, setMessage] = React.useState<string | null>(null)
-  const [error, setError] = React.useState<string | null>(null)
+  const { showToast } = useToast()
   const [categoryHints, setCategoryHints] = React.useState<
     Record<string, { id: string; name: string }>
   >({})
@@ -269,19 +269,24 @@ export function ExpenseItemBuilder({
         throw new Error(data.error ?? "Failed to create expenses")
       }
 
-      setMessage(null)
-      setError(null)
-
       reset({
         items: [createDefaultItem()],
         groupEnabled: false,
         group: undefined,
       })
-      setMessage("Expenses recorded")
+      showToast({
+        title: "Expenses recorded",
+        description: `${values.items.length} item(s) saved`,
+        variant: "success",
+      })
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to create expenses"
-      setError(message)
+      showToast({
+        title: "Failed to save expenses",
+        description: message,
+        variant: "destructive",
+      })
     }
   }
 
@@ -395,12 +400,6 @@ export function ExpenseItemBuilder({
             )}
           </div>
         </form>
-        {message ? (
-          <p className="text-sm font-medium text-emerald-600">{message}</p>
-        ) : null}
-        {error ? (
-          <p className="text-sm font-medium text-destructive">{error}</p>
-        ) : null}
       </CardContent>
     </Card>
   )
