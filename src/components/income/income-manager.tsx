@@ -26,6 +26,7 @@ type IncomeManagerProps = {
     occurredOn: string | Date
     amount: number
     description: string
+    recurringSourceId?: string | null
   }>
   currency?: string
 }
@@ -35,6 +36,8 @@ export function IncomeManager({
   currency = "USD",
 }: IncomeManagerProps) {
   const [items, setItems] = React.useState(entries)
+  const [deletingId, setDeletingId] = React.useState<string | null>(null)
+  const [editingId, setEditingId] = React.useState<string | null>(null)
   const { showToast } = useToast()
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -45,46 +48,117 @@ export function IncomeManager({
     },
   })
 
+  const resetForm = React.useCallback(() => {
+    form.reset({
+      description: "",
+      amount: "",
+      occurredOn: new Date().toISOString().split("T")[0],
+    })
+    setEditingId(null)
+  }, [form])
+
+  const formId = "one-off-income-form"
+
   const onSubmit = async (values: FormValues) => {
+    const payload = {
+      description: values.description,
+      amount: Number(values.amount),
+      occurredOn: new Date(values.occurredOn),
+    }
     try {
-      const response = await fetch("/api/income", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          description: values.description,
-          amount: Number(values.amount),
-          occurredOn: new Date(values.occurredOn),
-        }),
-      })
-      if (!response.ok) throw new Error("Failed to record income")
-      const income = await response.json()
-      setItems((prev) => [income, ...prev].slice(0, 5))
-      form.reset({
-        description: "",
-        amount: "",
-        occurredOn: new Date().toISOString().split("T")[0],
-      })
-      showToast({
-        title: "Income recorded",
-        description: income.description,
-        variant: "success",
-      })
+      if (editingId) {
+        const response = await fetch(`/api/income/${editingId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        if (!response.ok) throw new Error("Failed to update income")
+        const updated = await response.json()
+        setItems((prev) =>
+          prev.map((entry) => (entry.id === editingId ? updated : entry))
+        )
+        showToast({
+          title: "Income updated",
+          description: updated.description,
+          variant: "success",
+        })
+      } else {
+        const response = await fetch("/api/income", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        if (!response.ok) throw new Error("Failed to record income")
+        const income = await response.json()
+        setItems((prev) => [income, ...prev].slice(0, 5))
+        showToast({
+          title: "Income recorded",
+          description: income.description,
+          variant: "success",
+        })
+      }
+      resetForm()
     } catch (err) {
       showToast({
-        title: "Failed to record income",
+        title: editingId ? "Failed to update income" : "Failed to record income",
         description: err instanceof Error ? err.message : "Please try again.",
         variant: "destructive",
       })
     }
   }
 
+  const deleteIncomeEntry = async (id: string) => {
+    setDeletingId(id)
+    try {
+      const response = await fetch(`/api/income/${id}`, {
+        method: "DELETE",
+      })
+      if (!response.ok) throw new Error("Failed to delete income")
+      setItems((prev) => prev.filter((entry) => entry.id !== id))
+      if (editingId === id) {
+        resetForm()
+      }
+      showToast({
+        title: "Income deleted",
+        variant: "default",
+      })
+    } catch (err) {
+      showToast({
+        title: "Failed to delete income",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   return (
     <Card className="rounded-3xl">
-      <CardHeader>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4">
         <CardTitle>One-off income</CardTitle>
+        <div className="flex items-center gap-2">
+          {editingId ? (
+            <Button type="button" variant="ghost" onClick={resetForm}>
+              Cancel
+            </Button>
+          ) : null}
+          <Button
+            type="submit"
+            form={formId}
+            disabled={form.formState.isSubmitting}
+          >
+            {form.formState.isSubmitting
+              ? "Saving…"
+              : editingId
+                ? "Save changes"
+                : "Add income"}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         <form
+          id={formId}
           onSubmit={form.handleSubmit(onSubmit)}
           className="grid gap-4 md:grid-cols-3"
         >
@@ -100,11 +174,6 @@ export function IncomeManager({
           <Field label="Date">
             <Input type="date" {...form.register("occurredOn")} />
           </Field>
-          <div className="md:col-span-3 flex justify-end">
-            <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? "Saving…" : "Add income"}
-            </Button>
-          </div>
         </form>
         <div className="rounded-2xl border p-4">
           <p className="text-sm font-semibold">Recent entries</p>
@@ -115,7 +184,7 @@ export function IncomeManager({
             {items.map((item) => (
               <li
                 key={item.id}
-                className="flex items-center justify-between py-3"
+                className="flex items-center justify-between gap-3 py-3"
               >
                 <div>
                   <p className="font-medium">{item.description}</p>
@@ -123,9 +192,37 @@ export function IncomeManager({
                     {format(new Date(item.occurredOn), "MMM d yyyy")}
                   </p>
                 </div>
-                <p className="font-semibold">
-                  {formatCurrency(item.amount, currency)}
-                </p>
+                <div className="flex items-center gap-3">
+                  <p className="font-semibold">
+                    {formatCurrency(item.amount, currency)}
+                  </p>
+                  {item.recurringSourceId ? null : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEditingId(item.id)
+                        form.reset({
+                          description: item.description,
+                          amount: item.amount.toString(),
+                          occurredOn: new Date(item.occurredOn)
+                            .toISOString()
+                            .split("T")[0],
+                        })
+                      }}
+                    >
+                      Edit
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteIncomeEntry(item.id)}
+                    disabled={deletingId === item.id}
+                  >
+                    {deletingId === item.id ? "Deleting…" : "Delete"}
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>

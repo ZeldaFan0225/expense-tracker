@@ -26,6 +26,7 @@ export const {
         session.user.themePreference =
           (user as { themePreference?: string }).themePreference ?? "system"
         session.user.accentColor = (user as { accentColor?: string | null }).accentColor ?? null
+        session.user.onboardingCompleted = (user as { onboardingCompleted?: boolean }).onboardingCompleted ?? false
       }
       return session
     },

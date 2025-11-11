@@ -36,6 +36,7 @@ export function RecurringIncomeManager({
 }: RecurringIncomeManagerProps) {
   const [items, setItems] = React.useState(templates)
   const [loadingId, setLoadingId] = React.useState<string | null>(null)
+  const [editingId, setEditingId] = React.useState<string | null>(null)
   const { showToast } = useToast()
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -47,32 +48,52 @@ export function RecurringIncomeManager({
   })
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    const payload = {
+      description: values.description,
+      amount: Number(values.amount),
+      dueDayOfMonth: Number(values.dueDayOfMonth),
+    }
     try {
-      const response = await fetch("/api/income/recurring", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          description: values.description,
-          amount: Number(values.amount),
-          dueDayOfMonth: Number(values.dueDayOfMonth),
-        }),
-      })
-      if (!response.ok) throw new Error("Failed to create template")
-      const template = await response.json()
-      setItems((prev) => [template, ...prev])
+      if (editingId) {
+        const response = await fetch(`/api/income/recurring/${editingId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        if (!response.ok) throw new Error("Failed to update template")
+        const updated = await response.json()
+        setItems((prev) =>
+          prev.map((item) => (item.id === editingId ? updated : item))
+        )
+        showToast({
+          title: "Recurring income updated",
+          description: updated.description,
+          variant: "success",
+        })
+      } else {
+        const response = await fetch("/api/income/recurring", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        if (!response.ok) throw new Error("Failed to create template")
+        const template = await response.json()
+        setItems((prev) => [template, ...prev])
+        showToast({
+          title: "Recurring income added",
+          description: template.description,
+          variant: "success",
+        })
+      }
       form.reset({
         description: "",
         amount: "",
         dueDayOfMonth: "1",
       })
-      showToast({
-        title: "Recurring income added",
-        description: template.description,
-        variant: "success",
-      })
+      setEditingId(null)
     } catch (err) {
       showToast({
-        title: "Failed to create template",
+        title: editingId ? "Failed to update template" : "Failed to create template",
         description: err instanceof Error ? err.message : "Please try again.",
         variant: "destructive",
       })
@@ -101,13 +122,45 @@ export function RecurringIncomeManager({
     }
   }
 
+  const formId = "recurring-income-form"
+
   return (
     <Card className="rounded-3xl">
-      <CardHeader>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4">
         <CardTitle>Recurring income</CardTitle>
+        <div className="flex items-center gap-2">
+          {editingId ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setEditingId(null)
+                form.reset({
+                  description: "",
+                  amount: "",
+                  dueDayOfMonth: "1",
+                })
+              }}
+            >
+              Cancel
+            </Button>
+          ) : null}
+          <Button
+            type="submit"
+            form={formId}
+            disabled={form.formState.isSubmitting}
+          >
+            {form.formState.isSubmitting
+              ? "Saving…"
+              : editingId
+                ? "Save changes"
+                : "Create template"}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         <form
+          id={formId}
           onSubmit={form.handleSubmit(onSubmit)}
           className="grid gap-4 md:grid-cols-3"
         >
@@ -120,11 +173,6 @@ export function RecurringIncomeManager({
           <Field label="Due day">
             <Input type="number" min="1" max="28" {...form.register("dueDayOfMonth")} />
           </Field>
-          <div className="md:col-span-3 flex justify-end">
-            <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? "Saving…" : "Create template"}
-            </Button>
-          </div>
         </form>
         <div className="divide-y rounded-2xl border">
           {items.length === 0 ? (
@@ -144,14 +192,30 @@ export function RecurringIncomeManager({
                   {formatCurrency(item.amount, currency)}
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => deleteTemplate(item.id)}
-                disabled={loadingId === item.id}
-              >
-                Remove
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEditingId(item.id)
+                    form.reset({
+                      description: item.description,
+                      amount: item.amount.toString(),
+                      dueDayOfMonth: item.dueDayOfMonth.toString(),
+                    })
+                  }}
+                >
+                  Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => deleteTemplate(item.id)}
+                  disabled={loadingId === item.id}
+                >
+                  Remove
+                </Button>
+              </div>
             </div>
           ))}
         </div>

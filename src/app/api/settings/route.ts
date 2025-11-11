@@ -20,10 +20,31 @@ export async function PATCH(request: NextRequest) {
         id: true,
         defaultCurrency: true,
         accentColor: true,
+        onboardingCompleted: true,
       },
     })
 
     return json({ settings: updated })
+  } catch (error) {
+    return handleApiError(error)
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const auth = await authenticateRequest(request)
+    if (auth.source !== "session") {
+      return json(
+        { error: "Account deletion requires a signed-in session." },
+        { status: 403 }
+      )
+    }
+
+    await prisma.user.delete({
+      where: { id: auth.userId },
+    })
+
+    return json({ ok: true })
   } catch (error) {
     return handleApiError(error)
   }

@@ -4,10 +4,15 @@ import { parseApiKeyToken, verifyApiKeySecret } from "@/lib/api-keys"
 import { auth } from "@/lib/auth-server"
 import { consumeToken } from "@/lib/rate-limit"
 
+type AuthenticatedUser = {
+  defaultCurrency: string
+}
+
 export type AuthContext = {
   userId: string
   source: "session" | "api-key"
   scopes: ApiScope[]
+  user: AuthenticatedUser
 }
 
 export class ApiAuthError extends Error {
@@ -46,6 +51,11 @@ export async function authenticateRequest(
 
     const apiKey = await prisma.apiKey.findFirst({
       where: { prefix: parsed.prefix },
+      include: {
+        user: {
+          select: { defaultCurrency: true },
+        },
+      },
     })
 
     if (!apiKey) {
@@ -81,6 +91,9 @@ export async function authenticateRequest(
       userId: apiKey.userId,
       source: "api-key",
       scopes: apiKey.scopes,
+      user: {
+        defaultCurrency: apiKey.user?.defaultCurrency ?? "USD",
+      },
     }
   }
 
@@ -104,5 +117,8 @@ export async function authenticateRequest(
       "income_write",
       "budget_read",
     ],
+    user: {
+      defaultCurrency: session.user.defaultCurrency ?? "USD",
+    },
   }
 }

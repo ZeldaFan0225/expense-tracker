@@ -8,7 +8,9 @@ import { MonthlyOverviewCard } from "@/components/dashboard/monthly-overview-car
 import { QuickStats } from "@/components/dashboard/quick-stats"
 import { CashHistoryChart } from "@/components/dashboard/cash-history-chart"
 import { ExpenseFeed } from "@/components/dashboard/expense-feed"
-import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist"
+import { FeatureHint } from "@/components/feature-hint"
+import { requireOnboardingCompletion } from "@/lib/onboarding"
+import { GuidedSteps } from "@/components/guided-steps"
 
 export const dynamic = "force-dynamic"
 
@@ -19,44 +21,42 @@ export default async function Home() {
     return <LandingHero />
   }
 
-  const dashboard = await getDashboardData(session.user.id)
-  const checklist = [
-    {
-      id: "expense",
-      label: "Record your first expense",
-      description: "Use the bulk builder to log a transaction",
-      href: "/items",
-      completed: dashboard.recentExpenses.length > 0,
-    },
-    {
-      id: "recurring",
-      label: "Automate a recurring expense",
-      description: "Templates keep fixed costs in sync",
-      href: "/recurring",
-      completed: dashboard.recurringExpenses.length > 0,
-    },
-    {
-      id: "api",
-      label: "Generate an API key",
-      description: "Script imports or integrate automations",
-      href: "/api-keys",
-      completed: dashboard.apiKeyCount > 0,
-    },
-  ]
+  requireOnboardingCompletion(session)
 
+  const dashboard = await getDashboardData(session.user.id)
   return (
     <DashboardShell
       heading="Unified dashboard"
       description="Encrypted expenses, recurring income, and API insights."
       user={session.user}
       actions={
-        <Button asChild size="sm">
-          <Link href="/items">New expense</Link>
-        </Button>
+        <FeatureHint
+          label="Bulk item builder"
+          description="Jump straight into the multi-add builder to log up to 20 expenses at once."
+        >
+          <Button asChild size="sm">
+            <Link href="/items">New expense</Link>
+          </Button>
+        </FeatureHint>
       }
     >
-      <OnboardingChecklist items={checklist} />
-
+      <GuidedSteps
+        storageKey="dashboard-guided"
+        steps={[
+          {
+            title: "Review the overview",
+            description: "Start with the monthly overview to see remaining budget and recent deltas.",
+          },
+          {
+            title: "Log expenses quickly",
+            description: "Use the New expense action or the /items builder to keep data flowing.",
+          },
+          {
+            title: "Inspect the feed",
+            description: "Scroll the right column to verify that new entries and automations landed.",
+          },
+        ]}
+      />
       <MonthlyOverviewCard
         overview={dashboard.overview}
         currency={session.user.defaultCurrency}

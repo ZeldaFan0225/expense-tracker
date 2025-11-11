@@ -5,9 +5,10 @@ Expense Flow is an encrypted, multi-user expense and income operating system bui
 ## Feature tour
 - **Insight workspace** – rolling cash series with extra time ranges (3M/6M/12M/YTD), forecast area chart, anomaly alerts, category-health comparisons, scenario planner, and an income → spend Sankey.
 - **Feed + quick actions** – global command palette (⌘/Ctrl+K), floating quick-actions button, mobile nav pills, and a `/feed` page that unifies expenses, income, automations, API keys, and schedules in chronological order.
+- **Guided onboarding + Home** – `/onboarding` walks new users through currency/theme setup, a sample expense, and automation tips; `/home` surfaces a daily summary plus Shortcut-ready `/api/summary` endpoint.
 - **User preferences** – `/settings` lets you set default currency, theme (system/light/dark), and accent color, persisted via Prisma and synced with `next-themes`.
 - **Data entry upgrades** – bulk expense builder now supports smart category hints, bulk-apply bar, and API-powered suggestions. CSV import adds bank templates, preview+inline edits, structured import, and scheduled reminders.
-- **API surface** – besides the original CRUD endpoints, there are analytics routes (`/api/analytics/*`), feed export (`/api/feed`), structured import endpoints, and schedule controls; all respect API key scopes and rate limiting.
+- **API surface** – besides the original CRUD endpoints, there are analytics routes (`/api/analytics/*`), feed export (`/api/feed`), structured import endpoints, schedule controls, and a Shortcut-ready `/api/summary`; all respect API key scopes and rate limiting.
 
 ## Repository layout
 ```
@@ -48,7 +49,7 @@ AGENTS.md               # Full product specification and rebuild guide
 - **Analytics** – `analytics-service` powers cash series, CSV export, forecast/anomaly detection, category health, scenario simulation, and income-flow graph data.
 - **Automation** – a Node child process runs the recurring materialization loop (configurable via `AUTOMATION_INTERVAL_MS`) so income/expense instances stay fresh even when no one is signed in, and it revokes expired API keys automatically. Import schedules (Prisma `ImportSchedule`) store template/frequency metadata and expose `/api/import/schedules` CRUD endpoints.
 - **Data ingest** – CSV routes now support preview (`/api/import/preview`), structured JSON import (`/api/import/rows`), bank templates, inline edits, bulk edit bar, and scheduled reminders, all surfaced in `/import`.
-- **UX shell** – `DashboardShell` adds quick actions, mobile pills, and command palette. `/feed` renders a unified timeline. `/settings` syncs default currency plus accent color. Smart suggestions power `/items`.
+- **UX shell** – `DashboardShell` adds quick actions, mobile pills, and command palette. `/feed` renders a unified timeline. `/settings` syncs default currency plus accent color. `/onboarding` guides first-run setup, `/home` exposes the daily summary, and smart suggestions power `/items`.
 
 ## Current status (May 2025)
 

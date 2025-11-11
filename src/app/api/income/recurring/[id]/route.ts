@@ -7,16 +7,22 @@ import {
 } from "@/lib/services/recurring-income-service"
 
 type Params = {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
-export async function PATCH(request: NextRequest, { params }: Params) {
+async function resolveId(params: Params["params"]) {
+  const { id } = await params
+  return id
+}
+
+export async function PATCH(request: NextRequest, context: Params) {
   try {
     const auth = await authenticateRequest(request, ["income_write"])
     const payload = await request.json()
+    const id = await resolveId(context.params)
     const template = await updateRecurringIncome(
       auth.userId,
-      params.id,
+      id,
       payload
     )
     return json(template)
@@ -25,10 +31,11 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: Params) {
+export async function DELETE(request: NextRequest, context: Params) {
   try {
     const auth = await authenticateRequest(request, ["income_write"])
-    await deleteRecurringIncome(auth.userId, params.id)
+    const id = await resolveId(context.params)
+    await deleteRecurringIncome(auth.userId, id)
     return json({ ok: true })
   } catch (error) {
     return handleApiError(error)

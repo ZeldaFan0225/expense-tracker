@@ -10,6 +10,7 @@ declare module "next-auth" {
       defaultCurrency: string
       themePreference?: string | null
       accentColor?: string | null
+      onboardingCompleted?: boolean
     }
   }
 
@@ -17,5 +18,6 @@ declare module "next-auth" {
     defaultCurrency?: string
     themePreference?: string
     accentColor?: string | null
+    onboardingCompleted?: boolean
   }
 }

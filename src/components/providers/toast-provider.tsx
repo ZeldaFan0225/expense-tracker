@@ -87,8 +87,8 @@ function ToastCard({
 }) {
   const variantStyles: Record<ToastVariant, string> = {
     default: "border-border bg-background/95 text-foreground shadow-lg",
-    success: "border-emerald-500/60 bg-background text-foreground shadow-emerald-200/30",
-    destructive: "border-red-500/60 bg-background text-foreground shadow-red-200/30",
+    success: "border-emerald-500/60 bg-background text-foreground shadow-lg",
+    destructive: "border-red-500/60 bg-background text-foreground shadow-lg",
   }
 
   return (

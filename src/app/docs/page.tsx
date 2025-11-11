@@ -4,6 +4,8 @@ import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { requireOnboardingCompletion } from "@/lib/onboarding"
+import { GuidedSteps } from "@/components/guided-steps"
 
 type Endpoint = {
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
@@ -171,11 +173,13 @@ const endpointGroups: EndpointGroup[] = [
         path: "/api/categories",
         scope: "expenses:read",
         description: "List categories (default set auto-seeds on first call).",
-        response: `Array<{
-  id: string
-  name: string
-  color: string
-}>`,
+        response: `{
+  categories: Array<{
+    id: string
+    name: string
+    color: string
+  }>
+}`,
       },
       {
         method: "POST",
@@ -205,7 +209,8 @@ const endpointGroups: EndpointGroup[] = [
         path: "/api/recurring",
         scope: "expenses:read",
         description: "List recurring expense templates.",
-        response: `Array<{
+        response: `{
+  templates: Array<{
   id: string
   description: string
   amount: number
@@ -213,7 +218,8 @@ const endpointGroups: EndpointGroup[] = [
   splitBy: number
   isActive: boolean
   categoryId: string | null
-}>`,
+  }>
+}`,
       },
       {
         method: "POST",
@@ -281,17 +287,36 @@ const endpointGroups: EndpointGroup[] = [
 }`,
       },
       {
+        method: "PATCH",
+        path: "/api/income/:id",
+        scope: "income:write",
+        description: "Update description, amount, or date of a single income entry.",
+        request: `{
+  description?: string
+  amount?: number
+  occurredOn?: string
+}`,
+      },
+      {
+        method: "DELETE",
+        path: "/api/income/:id",
+        scope: "income:write",
+        description: "Delete a single income entry.",
+      },
+      {
         method: "GET",
         path: "/api/income/recurring",
         scope: "income:write",
         description: "List recurring income templates.",
-        response: `Array<{
+        response: `{
+  templates: Array<{
   id: string
   description: string
   amount: number
   dueDayOfMonth: number
   isActive: boolean
-}>`,
+  }>
+}`,
       },
       {
         method: "POST",
@@ -341,11 +366,11 @@ const endpointGroups: EndpointGroup[] = [
         path: "/api/spending?preset",
         scope: "analytics:read",
         description: "Balance series plus comparison deltas.",
-        query: "`preset=3m|6m|12m|ytd|custom`, `start`, `end` (ISO).",
+        query: "`preset=month|3m|6m|12m|ytd|custom`, `start`, `end` (ISO).",
         response: `{
   series: {
     range: {
-      preset: "3m" | "6m" | "12m" | "ytd" | "custom"
+      preset: "month" | "3m" | "6m" | "12m" | "ytd" | "custom"
       start: string
       end: string
     }
@@ -400,7 +425,6 @@ const endpointGroups: EndpointGroup[] = [
         path: "/api/feed",
         scope: "analytics:read",
         description: "Chronological feed of expenses, income, automations.",
-        query: "`limit?`, `start?`.",
         response: `{
   feed: Array<{
     id: string
@@ -431,6 +455,7 @@ const endpointGroups: EndpointGroup[] = [
         path: "/api/analytics/forecast",
         scope: "analytics:read",
         description: "Actual vs projected net cash.",
+        query: "`months?`, `horizon?` (numbers, optional).",
         response: `{
   history: Array<{
     key: string
@@ -452,21 +477,26 @@ const endpointGroups: EndpointGroup[] = [
         path: "/api/analytics/anomalies",
         scope: "analytics:read",
         description: "Category z-score anomalies for a month.",
-        response: `Array<{
+        query: "`months?` (defaults to 12).",
+        response: `{
+  anomalies: Array<{
   categoryId: string
   categoryLabel: string
   current: number
   mean: number
   std: number
   zScore: number
-}>`,
+  }>
+}`,
       },
       {
         method: "GET",
         path: "/api/analytics/category-health",
         scope: "analytics:read",
         description: "Category share vs baseline stats.",
-        response: `Array<{
+        query: "`month=YYYY-MM?`, `baselineMonths?` (defaults to 6).",
+        response: `{
+  health: Array<{
   categoryId: string
   label: string
   color: string
@@ -474,13 +504,15 @@ const endpointGroups: EndpointGroup[] = [
   baseline: number
   delta: number
   status: "over" | "under"
-}>`,
+  }>
+}`,
       },
       {
         method: "GET",
         path: "/api/analytics/income-flow",
         scope: "analytics:read",
         description: "Sankey nodes/links describing income allocation.",
+        query: "`month=YYYY-MM?`.",
         response: `{
   nodes: Array<{ name: string; color?: string }>
   links: Array<{ source: number; target: number; value: number }>
@@ -512,6 +544,283 @@ const endpointGroups: EndpointGroup[] = [
         query: "Same params as `/api/spending`.",
         response: "`string` // CSV payload",
       },
+      {
+        method: "GET",
+        path: "/api/summary?date",
+        scope: "analytics:read",
+        description: "Daily summary totals, entries, and upcoming recurring templates.",
+        query: "`date=YYYY-MM-DD` (optional, defaults to today).",
+        response: `{
+  currency: string
+  summary: {
+    date: string
+    totals: {
+      expenses: number
+      income: number
+      net: number
+    }
+    expenses: Array<{
+      id: string
+      occurredOn: string
+      description: string
+      amount: number
+      impactAmount: number
+      category: string | null
+      categoryColor: string | null
+    }>
+    incomes: Array<{
+      id: string
+      occurredOn: string
+      description: string
+      amount: number
+    }>
+    upcomingRecurring: Array<{
+      id: string
+      description: string
+      amount: number
+      dueDayOfMonth: number
+      categoryId?: string | null
+    }>
+    trend: Array<{
+      id: string
+      occurredOn: string
+      impactAmount: number
+    }>
+  }
+}`,
+      },
+    ],
+  },
+  {
+    title: "API keys (dashboard only)",
+    description: "Manage scoped tokens via a signed-in browser session.",
+    endpoints: [
+      {
+        method: "GET",
+        path: "/api/api-keys",
+        scope: "session",
+        description: "List existing API keys (secrets are never returned).",
+        response: `{
+  keys: Array<{
+    id: string
+    prefix: string
+    scopes: string[]
+    description?: string | null
+    expiresAt?: string | null
+    revokedAt?: string | null
+    createdAt: string
+  }>
+}`,
+      },
+      {
+        method: "POST",
+        path: "/api/api-keys",
+        scope: "session",
+        description: "Create a new API key and return the raw token once.",
+        request: `{
+  description?: string
+  scopes: string[] // e.g. ["expenses:read", "analytics:read"]
+  expiresAt?: string
+}`,
+        response: `{
+  token: string
+  record: {
+    id: string
+    prefix: string
+    scopes: string[]
+    description?: string | null
+    expiresAt?: string | null
+    revokedAt?: string | null
+    createdAt: string
+  }
+}`,
+      },
+      {
+        method: "DELETE",
+        path: "/api/api-keys/:id",
+        scope: "session",
+        description: "Revoke or delete an API key by id.",
+        response: `{
+  ok: boolean
+  action: "revoked" | "deleted"
+}`,
+      },
+    ],
+  },
+  {
+    title: "CSV import & schedules",
+    description: "Upload files or manage background import automations (session only).",
+    endpoints: [
+      {
+        method: "POST",
+        path: "/api/import",
+        scope: "session",
+        description: "Upload a CSV file and import rows immediately.",
+        request: "multipart/form-data { file: File, mode?: expenses|income, template?: string }",
+        response: `{
+  imported: number
+}`,
+      },
+      {
+        method: "POST",
+        path: "/api/import/preview",
+        scope: "session",
+        description: "Preview the first 50 normalized rows before importing.",
+        request: "multipart/form-data { file: File, mode?: expenses|income, template?: string }",
+        response: `{
+  rows: Array<{
+    id: string
+    date: string
+    description: string
+    category: string
+    amount: number
+    impactAmount?: number
+  }>
+}`,
+      },
+      {
+        method: "POST",
+        path: "/api/import/rows",
+        scope: "session",
+        description: "Send structured JSON rows instead of uploading a CSV.",
+        request: `{
+  mode?: "expenses" | "income"
+  rows: Array<{
+    date: string
+    description: string
+    amount: number
+    impactAmount?: number
+    category?: string
+    categoryId?: string
+  }>
+}`,
+        response: `{
+  imported: number
+}`,
+      },
+      {
+        method: "GET",
+        path: "/api/import/schedules",
+        scope: "session",
+        description: "List saved import schedules.",
+        response: `{
+  schedules: Array<{
+    id: string
+    name: string
+    mode: "expenses" | "income"
+    template: string
+    frequency: "weekly" | "biweekly" | "monthly" | "quarterly"
+    sourceUrl?: string | null
+    lastRunAt?: string | null
+    nextRunAt?: string | null
+    createdAt: string
+  }>
+}`,
+      },
+      {
+        method: "POST",
+        path: "/api/import/schedules",
+        scope: "session",
+        description: "Create a schedule that periodically fetches and imports CSV data.",
+        request: `{
+  name: string
+  mode: "expenses" | "income"
+  template?: string
+  frequency: "weekly" | "biweekly" | "monthly" | "quarterly"
+  sourceUrl?: string
+}`,
+        response: `{
+  schedule: {
+    id: string
+    name: string
+    mode: "expenses" | "income"
+    template: string
+    frequency: "weekly" | "biweekly" | "monthly" | "quarterly"
+    sourceUrl?: string | null
+    nextRunAt?: string | null
+  }
+}`,
+      },
+      {
+        method: "PATCH",
+        path: "/api/import/schedules/:id",
+        scope: "session",
+        description: "Update schedule metadata or frequency.",
+        request: `{
+  name?: string
+  mode?: "expenses" | "income"
+  template?: string
+  frequency?: "weekly" | "biweekly" | "monthly" | "quarterly"
+  sourceUrl?: string
+}`,
+        response: `{
+  schedule: {
+    id: string
+    name: string
+    mode: "expenses" | "income"
+    template: string
+    frequency: "weekly" | "biweekly" | "monthly" | "quarterly"
+    sourceUrl?: string | null
+    nextRunAt?: string | null
+  }
+}`,
+      },
+      {
+        method: "DELETE",
+        path: "/api/import/schedules/:id",
+        scope: "session",
+        description: "Delete a saved schedule.",
+        response: `{
+  success: boolean
+}`,
+      },
+      {
+        method: "POST",
+        path: "/api/import/schedules/:id/run",
+        scope: "session",
+        description: "Mark a schedule run complete and compute the next run timestamp.",
+        response: `{
+  schedule: {
+    id: string
+    lastRunAt?: string | null
+    nextRunAt?: string | null
+  }
+}`,
+      },
+    ],
+  },
+  {
+    title: "Settings",
+    description: "Session-only preferences for the signed-in user.",
+    endpoints: [
+      {
+        method: "PATCH",
+        path: "/api/settings",
+        scope: "session",
+        description: "Update currency, accent color, or onboarding flag.",
+        request: `{
+  defaultCurrency?: string // ISO currency code
+  accentColor?: string // hex
+  onboardingCompleted?: boolean
+}`,
+        response: `{
+  settings: {
+    id: string
+    defaultCurrency: string
+    accentColor?: string | null
+    onboardingCompleted: boolean
+  }
+}`,
+      },
+      {
+        method: "DELETE",
+        path: "/api/settings",
+        scope: "session",
+        description: "Delete your entire account and all associated data.",
+        response: `{
+  ok: boolean
+}`,
+      },
     ],
   },
 ]
@@ -521,6 +830,7 @@ export const dynamic = "force-dynamic"
 export default async function DocsPage() {
   const session = await auth()
   if (!session?.user) redirect("/")
+  requireOnboardingCompletion(session)
 
   return (
     <DashboardShell
@@ -528,6 +838,23 @@ export default async function DocsPage() {
       description="Scopes, headers, and endpoints for integrating Expense Flow."
       user={session.user}
     >
+      <GuidedSteps
+        storageKey="docs-guided"
+        steps={[
+          {
+            title: "Authenticate first",
+            description: "Use session cookies in-browser or scoped API keys with the x-api-key header.",
+          },
+          {
+            title: "Pick the scope",
+            description: "Match each endpoint to a scope so least-privilege API keys stay tight.",
+          },
+          {
+            title: "Prototype quickly",
+            description: "Copy request/response snippets into Thunder Client, Postman, or curl.",
+          },
+        ]}
+      />
       <Card className="rounded-3xl">
         <CardHeader>
           <CardTitle>Authentication</CardTitle>

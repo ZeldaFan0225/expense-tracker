@@ -1,4 +1,4 @@
-import type { Income } from "@prisma/client"
+import type { Income, Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import {
   decryptNumber,
@@ -7,7 +7,7 @@ import {
   encryptString,
   serializeEncrypted,
 } from "@/lib/encryption"
-import { incomeSchema } from "@/lib/validation"
+import { incomeSchema, incomeUpdateSchema } from "@/lib/validation"
 import { materializeRecurringIncomes } from "@/lib/recurring"
 
 function mapIncome(record: Income) {
@@ -33,6 +33,62 @@ export async function addIncome(userId: string, payload: unknown) {
     },
   })
   return mapIncome(created)
+}
+
+export async function deleteIncome(userId: string, id: string) {
+  await prisma.income.findFirstOrThrow({
+    where: { id, userId },
+  })
+  await prisma.income.delete({
+    where: { id },
+  })
+}
+
+export async function updateIncome(
+  userId: string,
+  id: string,
+  payload: unknown
+) {
+  if (!id) {
+    throw new Error("Income id is required")
+  }
+  const data = incomeUpdateSchema.parse(payload)
+  const existing = await prisma.income.findFirstOrThrow({
+    where: { id, userId },
+  })
+  if (existing.recurringSourceId) {
+    throw new Error("Recurring income entries cannot be edited")
+  }
+
+  const updates: Prisma.IncomeUpdateInput = {}
+
+  if (data.amount !== undefined) {
+    updates.amountEncrypted = serializeEncrypted(encryptNumber(data.amount))
+  }
+  if (data.description !== undefined) {
+    updates.descriptionEncrypted = serializeEncrypted(
+      encryptString(data.description)
+    )
+  }
+  if (data.occurredOn !== undefined) {
+    updates.occurredOn = data.occurredOn
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return mapIncome(existing)
+  }
+
+  const result = await prisma.income.updateMany({
+    where: { id, userId },
+    data: updates,
+  })
+  if (result.count === 0) {
+    throw new Error("Income entry not found")
+  }
+  const fresh = await prisma.income.findFirstOrThrow({
+    where: { id, userId },
+  })
+  return mapIncome(fresh)
 }
 
 export async function listIncomeForRange(

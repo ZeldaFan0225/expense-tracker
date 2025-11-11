@@ -1,7 +1,13 @@
-import Link from "next/link"
+"use client"
+
+import { signIn } from "next-auth/react"
 import { ArrowRight, ShieldCheck, Sparkles } from "lucide-react"
 
 export function LandingHero() {
+  const handleSignIn = () => {
+    void signIn("github", { callbackUrl: "/" })
+  }
+
   return (
     <main className="bg-gradient-to-b from-slate-950 via-slate-900 to-black text-white">
       <section className="mx-auto flex min-h-screen w-full max-w-5xl flex-col items-center justify-center gap-10 px-6 py-24 text-center">
@@ -21,13 +27,14 @@ export function LandingHero() {
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Link
-            href="/api/auth/signin?provider=github"
+          <button
+            type="button"
+            onClick={handleSignIn}
             className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 font-medium text-slate-900 transition hover:bg-white/90"
           >
             Sign in with GitHub
             <ArrowRight className="ml-2 size-4" />
-          </Link>
+          </button>
           <a
             href="#learn-more"
             className="inline-flex items-center justify-center rounded-full border border-white/30 px-6 py-3 font-medium text-white/80 hover:border-white hover:text-white"

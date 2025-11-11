@@ -1,4 +1,4 @@
-import type { RecurringIncome } from "@prisma/client"
+import type { Prisma, RecurringIncome } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import {
   decryptNumber,
@@ -7,7 +7,10 @@ import {
   encryptString,
   serializeEncrypted,
 } from "@/lib/encryption"
-import { recurringIncomeSchema } from "@/lib/validation"
+import {
+  recurringIncomeSchema,
+  recurringIncomeUpdateSchema,
+} from "@/lib/validation"
 
 function mapTemplate(template: RecurringIncome) {
   return {
@@ -48,28 +51,52 @@ export async function updateRecurringIncome(
   id: string,
   payload: unknown
 ) {
-  const data = recurringIncomeSchema.partial().parse(payload)
-  await prisma.recurringIncome.findFirstOrThrow({
+  if (!id) {
+    throw new Error("Recurring income id is required")
+  }
+  const data = recurringIncomeUpdateSchema.parse(payload)
+  const existing = await prisma.recurringIncome.findFirstOrThrow({
     where: { id, userId },
   })
 
-  const updated = await prisma.recurringIncome.update({
-    where: { id },
-    data: {
-      dueDayOfMonth: data.dueDayOfMonth,
-      amountEncrypted: data.amount
-        ? serializeEncrypted(encryptNumber(data.amount))
-        : undefined,
-      descriptionEncrypted: data.description
-        ? serializeEncrypted(encryptString(data.description))
-        : undefined,
-      isActive: data.isActive,
-    },
+  const updates: Prisma.RecurringIncomeUpdateInput = {}
+
+  if (data.dueDayOfMonth !== undefined) {
+    updates.dueDayOfMonth = data.dueDayOfMonth
+  }
+  if (data.amount !== undefined) {
+    updates.amountEncrypted = serializeEncrypted(encryptNumber(data.amount))
+  }
+  if (data.description !== undefined) {
+    updates.descriptionEncrypted = serializeEncrypted(
+      encryptString(data.description)
+    )
+  }
+  if (data.isActive !== undefined) {
+    updates.isActive = data.isActive
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return mapTemplate(existing)
+  }
+
+  const result = await prisma.recurringIncome.updateMany({
+    where: { id, userId },
+    data: updates,
   })
-  return mapTemplate(updated)
+  if (result.count === 0) {
+    throw new Error("Recurring income not found")
+  }
+  const fresh = await prisma.recurringIncome.findFirstOrThrow({
+    where: { id, userId },
+  })
+  return mapTemplate(fresh)
 }
 
 export async function deleteRecurringIncome(userId: string, id: string) {
+  if (!id) {
+    throw new Error("Recurring income id is required")
+  }
   await prisma.recurringIncome.findFirstOrThrow({
     where: { id, userId },
   })

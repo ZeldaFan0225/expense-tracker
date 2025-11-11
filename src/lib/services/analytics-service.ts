@@ -34,6 +34,14 @@ function resolveRange(params?: {
     }
   }
 
+  if (preset === "month") {
+    return {
+      preset,
+      start: startOfMonth(now),
+      end: endOfMonth(now),
+    }
+  }
+
   if (preset === "3m") {
     return {
       preset,
@@ -42,9 +50,9 @@ function resolveRange(params?: {
     }
   }
 
-  if (preset === "month" || preset === "6m") {
+  if (preset === "6m") {
     return {
-      preset: preset === "month" ? "month" : "6m",
+      preset,
       start: startOfMonth(subMonths(now, 5)),
       end: endOfMonth(now),
     }
@@ -581,8 +589,23 @@ export async function getIncomeFlowGraph(
     })
   }
 
-  if (overview.totalExpenses > 0) {
-    links.push({ source: 2, target: 4, value: overview.totalExpenses })
+  const normalizedIncome = Math.max(overview.totalIncome, 0)
+  const normalizedExpenses = Math.max(overview.totalExpenses, 0)
+  const incomeAppliedToSpending = Math.min(normalizedExpenses, normalizedIncome)
+
+  if (incomeAppliedToSpending > 0) {
+    links.push({ source: 2, target: 4, value: incomeAppliedToSpending })
+  }
+
+  const spendingShortfall = Math.max(
+    normalizedExpenses - normalizedIncome,
+    0
+  )
+
+  if (spendingShortfall > 0) {
+    const savingsNodeIndex = nodes.length
+    nodes.push({ name: "Savings", color: "var(--chart-5)" })
+    links.push({ source: savingsNodeIndex, target: 4, value: spendingShortfall })
   }
 
   overview.categoryTotals.forEach((category) => {
@@ -593,9 +616,43 @@ export async function getIncomeFlowGraph(
     links.push({ source: 4, target: targetIndex, value })
   })
 
+  const filteredLinks = links.filter((link) => link.value > 0)
+  const usedNodeIndices = new Set<number>()
+  filteredLinks.forEach((link) => {
+    usedNodeIndices.add(link.source)
+    usedNodeIndices.add(link.target)
+  })
+
+  const indexMap = new Map<number, number>()
+  const filteredNodes = nodes
+    .map((node, originalIndex) => ({ node, originalIndex }))
+    .filter(({ originalIndex }) => usedNodeIndices.has(originalIndex))
+    .map(({ node, originalIndex }, newIndex) => {
+      indexMap.set(originalIndex, newIndex)
+      return node
+    })
+
+  const normalizedLinks = filteredLinks
+    .map((link) => {
+      const source = indexMap.get(link.source)
+      const target = indexMap.get(link.target)
+      if (typeof source !== "number" || typeof target !== "number") {
+        return null
+      }
+      return {
+        source,
+        target,
+        value: link.value,
+      }
+    })
+    .filter(
+      (link): link is { source: number; target: number; value: number } =>
+        link !== null
+    )
+
   return {
-    nodes,
-    links,
+    nodes: filteredNodes,
+    links: normalizedLinks,
     totalIncome: overview.totalIncome,
     totalExpenses: overview.totalExpenses,
     recurringIncome: recurringIncomeTotal,

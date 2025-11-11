@@ -24,13 +24,14 @@ import { Select } from "@/components/ui/select"
 import { formatCurrency } from "@/lib/currency"
 
 const timeRangeTabs = [
+  { value: "month", label: "1 month" },
   { value: "3m", label: "Last 3M" },
   { value: "6m", label: "Last 6M" },
   { value: "12m", label: "Last 12M" },
   { value: "ytd", label: "YTD" },
 ]
 
-type RangePreset = "3m" | "6m" | "12m" | "ytd"
+type RangePreset = "month" | "3m" | "6m" | "12m" | "ytd"
 
 type SeriesPoint = {
   key: string

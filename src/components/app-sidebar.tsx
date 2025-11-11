@@ -7,6 +7,7 @@ import {
   BadgeDollarSign,
   BookLock,
   ChartSpline,
+  Home,
   KeyRound,
   LayoutDashboard,
   Repeat2,
@@ -28,11 +29,13 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { FeatureHint } from "@/components/feature-hint"
 
 const navigation = [
   {
     label: "Workspace",
     items: [
+      { title: "Home", href: "/home", icon: Home },
       { title: "Overview", href: "/", icon: LayoutDashboard },
       { title: "Quick add", href: "/items", icon: Wallet },
       { title: "Analytics", href: "/analytics", icon: ChartSpline },
@@ -84,16 +87,21 @@ export function AppSidebar({
           </div>
         </div>
         <div className="px-2 pb-4">
-          <button
-            type="button"
-            onClick={onQuickActionsClick}
-            className="w-full rounded-2xl border border-sidebar-border/50 bg-sidebar/80 px-4 py-2 text-left text-sm font-semibold text-sidebar-foreground shadow-sm transition hover:border-sidebar-border"
+          <FeatureHint
+            label="Command palette"
+            description="Tap to open quick actions or press ⌘K / Ctrl+K from anywhere."
           >
-            Quick actions
-            <span className="ml-2 rounded border border-sidebar-border/60 px-2 py-0.5 text-sm font-semibold text-sidebar-foreground/80">
-              ⌘K
-            </span>
-          </button>
+            <button
+              type="button"
+              onClick={onQuickActionsClick}
+              className="w-full rounded-2xl border border-sidebar-border/50 bg-sidebar/80 px-4 py-2 text-left text-sm font-semibold text-sidebar-foreground shadow-sm transition hover:border-sidebar-border"
+            >
+              Quick actions
+              <span className="ml-2 rounded border border-sidebar-border/60 px-2 py-0.5 text-sm font-semibold text-sidebar-foreground/80">
+                ⌘K
+              </span>
+            </button>
+          </FeatureHint>
         </div>
       </SidebarHeader>
       <SidebarContent>

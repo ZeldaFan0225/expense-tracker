@@ -28,16 +28,40 @@ export const recurringExpenseSchema = z.object({
   isActive: z.coerce.boolean().optional(),
 })
 
+const nullableCuid = z.union([z.string().cuid(), z.null()])
+
+export const recurringExpenseUpdateSchema = z.object({
+  amount: z.coerce.number().positive().optional(),
+  description: z.string().min(1).max(120).optional(),
+  categoryId: nullableCuid.optional(),
+  dueDayOfMonth: z.coerce.number().int().min(1).max(31).optional(),
+  splitBy: z.coerce.number().int().min(1).max(10).optional(),
+  isActive: z.coerce.boolean().optional(),
+})
+
 export const incomeSchema = z.object({
   amount: z.coerce.number().positive(),
   description: z.string().min(1).max(120),
   occurredOn: z.coerce.date(),
 })
 
+export const incomeUpdateSchema = z.object({
+  amount: z.coerce.number().positive().optional(),
+  description: z.string().min(1).max(120).optional(),
+  occurredOn: z.coerce.date().optional(),
+})
+
 export const recurringIncomeSchema = z.object({
   amount: z.coerce.number().positive(),
   description: z.string().min(1).max(120),
   dueDayOfMonth: z.coerce.number().int().min(1).max(28).default(1),
+  isActive: z.coerce.boolean().optional(),
+})
+
+export const recurringIncomeUpdateSchema = z.object({
+  amount: z.coerce.number().positive().optional(),
+  description: z.string().min(1).max(120).optional(),
+  dueDayOfMonth: z.coerce.number().int().min(1).max(31).optional(),
   isActive: z.coerce.boolean().optional(),
 })
 
@@ -79,6 +103,7 @@ export const userSettingsSchema = z.object({
     .string()
     .regex(/^#([0-9a-f]{3}){1,2}$/i, "Color must be hex")
     .optional(),
+  onboardingCompleted: z.coerce.boolean().optional(),
 })
 
 export const importRowSchema = z.object({

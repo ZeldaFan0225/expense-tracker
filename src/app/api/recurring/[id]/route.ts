@@ -8,16 +8,22 @@ import {
 } from "@/lib/services/recurring-expense-service"
 
 type Params = {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
-export async function PATCH(request: NextRequest, { params }: Params) {
+async function resolveId(params: Params["params"]) {
+  const { id } = await params
+  return id
+}
+
+export async function PATCH(request: NextRequest, context: Params) {
   try {
     const auth = await authenticateRequest(request, ["expenses_write"])
     const payload = await request.json()
+    const id = await resolveId(context.params)
     const template = await updateRecurringExpense(
       auth.userId,
-      params.id,
+      id,
       payload
     )
     return json(template)
@@ -26,20 +32,22 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   }
 }
 
-export async function PUT(request: NextRequest, { params }: Params) {
+export async function PUT(request: NextRequest, context: Params) {
   try {
     const auth = await authenticateRequest(request, ["expenses_write"])
-    const template = await toggleRecurringExpense(auth.userId, params.id)
+    const id = await resolveId(context.params)
+    const template = await toggleRecurringExpense(auth.userId, id)
     return json(template)
   } catch (error) {
     return handleApiError(error)
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: Params) {
+export async function DELETE(request: NextRequest, context: Params) {
   try {
     const auth = await authenticateRequest(request, ["expenses_write"])
-    await deleteRecurringExpense(auth.userId, params.id)
+    const id = await resolveId(context.params)
+    await deleteRecurringExpense(auth.userId, id)
     return json({ ok: true })
   } catch (error) {
     return handleApiError(error)
