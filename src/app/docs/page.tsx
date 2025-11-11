@@ -108,13 +108,22 @@ const endpointGroups: EndpointGroup[] = [
         path: "/api/expenses/:id",
         scope: "expenses:write",
         description: "Partial update for an expense.",
-        request: `Partial<{
+        request: `{
+  occurredOn?: string
+  amount?: number
+  impactAmount?: number
+  description?: string
+  categoryId?: string
+}`,
+        response: `{
+  id: string
   occurredOn: string
   amount: number
-  impactAmount?: number
+  impactAmount: number
   description: string
-  categoryId?: string
-}>`,
+  categoryId: string | null
+  recurringSourceId?: string | null
+}`,
       },
       {
         method: "DELETE",
@@ -230,6 +239,23 @@ const endpointGroups: EndpointGroup[] = [
         path: "/api/recurring/:id",
         scope: "expenses:write",
         description: "Partial update for a template.",
+        request: `{
+  description?: string
+  amount?: number
+  dueDayOfMonth?: number
+  splitBy?: number
+  categoryId?: string
+  isActive?: boolean
+}`,
+        response: `{
+  id: string
+  description: string
+  amount: number
+  dueDayOfMonth: number
+  splitBy: number
+  isActive: boolean
+  categoryId: string | null
+}`,
       },
       {
         method: "DELETE",
@@ -283,6 +309,19 @@ const endpointGroups: EndpointGroup[] = [
         path: "/api/income/recurring/:id",
         scope: "income:write",
         description: "Update a recurring income template.",
+        request: `{
+  description?: string
+  amount?: number
+  dueDayOfMonth?: number
+  isActive?: boolean
+}`,
+        response: `{
+  id: string
+  description: string
+  amount: number
+  dueDayOfMonth: number
+  isActive: boolean
+}`,
       },
       {
         method: "DELETE",

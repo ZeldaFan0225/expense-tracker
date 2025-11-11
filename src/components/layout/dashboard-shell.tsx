@@ -120,38 +120,40 @@ export function DashboardShell({
     >
       <AppSidebar onQuickActionsClick={() => setPaletteOpen(true)} />
       <SidebarInset className="flex flex-col md:h-screen">
-        <header className="flex h-16 w-full items-center justify-between border-b px-4">
-          <div className="flex items-center gap-2">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="h-6 border-border" />
-            <div>
-              <p className="text-sm font-semibold text-foreground">{heading}</p>
-              {description ? (
-                <p className="hidden text-xs text-muted-foreground sm:block">
-                  {description}
-                </p>
+        <header className="sticky top-0 z-20 border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+          <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-1 items-center gap-3">
+              <SidebarTrigger className="-ml-1" />
+              <Separator orientation="vertical" className="h-6 border-border" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-foreground">{heading}</p>
+                {description ? (
+                  <p className="hidden truncate text-xs text-muted-foreground sm:block">
+                    {description}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="flex flex-shrink-0 items-center gap-2">
+              {actions}
+              <ThemeToggle />
+              {user ? (
+                <div className="flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs">
+                  <span className="max-w-[9rem] truncate font-medium">
+                    {user.name ?? user.email ?? "You"}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 rounded-full px-3 text-xs"
+                    onClick={() => signOut({ redirectTo: "/" })}
+                  >
+                    Sign out
+                  </Button>
+                </div>
               ) : null}
             </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {actions}
-            <ThemeToggle />
-            {user ? (
-              <div className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
-                <span className="font-medium">
-                  {user.name ?? user.email ?? "You"}
-                </span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-xs"
-                  onClick={() => signOut({ redirectTo: "/" })}
-                >
-                  Sign out
-                </Button>
-              </div>
-            ) : null}
           </div>
         </header>
         <div className="flex-1 overflow-y-auto">
