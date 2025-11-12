@@ -1,152 +1,129 @@
 # Expense Flow
 
-Expense Flow is an encrypted, multi-user expense and income operating system built with Next.js 16, React 19, Tailwind CSS v4, Prisma 6, and NextAuth 5 beta. The codebase follows the product contract in `AGENTS.md` and layers on richer analytics, CSV automation, scoped APIs, and workspace UX polish.
+Encrypted money management for modern teams: Expense Flow pairs AES-256-GCM encryption, scoped API keys, and automation
+with a polished React + Tailwind desktop workspace and responsive mobile experience.
 
-## Feature tour
-- **Insight workspace** – rolling cash series with extra time ranges (3M/6M/12M/YTD), forecast area chart, anomaly alerts, category-health comparisons, scenario planner, and an income → spend Sankey.
-- **Feed + quick actions** – global command palette (⌘/Ctrl+K), floating quick-actions button, mobile nav pills, and a `/feed` page that unifies expenses, income, automations, API keys, and schedules in chronological order.
-- **Guided onboarding + Home** – `/onboarding` walks new users through currency/theme setup, a sample expense, and automation tips; `/home` surfaces a daily summary plus Shortcut-ready `/api/summary` endpoint.
-- **User preferences** – `/settings` lets you set default currency, theme (system/light/dark), and accent color, persisted via Prisma and synced with `next-themes`.
-- **Data entry upgrades** – bulk expense builder now supports smart category hints, bulk-apply bar, and API-powered suggestions. CSV import adds bank templates, preview+inline edits, structured import, and scheduled reminders.
-- **API surface** – besides the original CRUD endpoints, there are analytics routes (`/api/analytics/*`), feed export (`/api/feed`), structured import endpoints, schedule controls, and a Shortcut-ready `/api/summary`; all respect API key scopes and rate limiting.
+## TL;DR
 
-## Repository layout
-```
-prisma/                 # Prisma schema + migrations
-src/app/                # App Router routes, API handlers, global layout/styles
-src/components/         # Layout, feature modules, shadcn-inspired UI primitives
-src/lib/                # Prisma client, auth helpers, encryption, services
-AGENTS.md               # Full product specification and rebuild guide
-```
+- **Purpose**: Track expenses, income, and recurring automation with analytics, CSV import/export, and sharable API keys
+  backed by a Prisma + PostgreSQL backend.
+- **Who it serves**: GitHub-authenticated users. Sessions are stored in the database, and every monetary/descriptive
+  field is encrypted before Prisma stores it.
+- **Experience**: Desktop dashboard inside `DashboardShell` (fixed sidebar + scrollable content) plus mobile pills.
+  Guided onboarding (`/onboarding`) and quick actions (`⌘/Ctrl+K` command palette) stay consistent across flows.
 
-## Getting started
-1. **Install dependencies** (NextAuth beta prefers `--legacy-peer-deps`)
+## Feature highlights
+
+- **Expense & income flows** – single/bulk expense builder with split tracking (`splitBy`), recurring templates, import
+  wizards, and CSV preview/edit paths.
+- **Analytics** – cash-history charts, Sankey-style budget flow, anomaly detection helpers, CSV exports, and scenario
+  planning via `analytics-service`.
+- **Automation** – background worker materializes recurring incomes/expenses, enforces API key expirations, and powers
+  import schedules. Configurable via `AUTOMATION_*` env vars.
+- **Security** – AES-256-GCM encryption helpers, bcrypt-hashed API keys, NextAuth 5 session auth (GitHub provider +
+  Prisma adapter), middleware headers (CSP, HSTS, etc.), and in-memory token-bucket rate limiting.
+- **Developer tooling** – shadcn-inspired UI primitives, `DashboardShell`, and `cn` helpers for consistent styling.
+  `AGENTS.md` holds the full architecture & recreation guide.
+
+## Tech & dependencies
+
+- **Framework** – Next.js App Router 16 with React 19, server components mixed with client actions and hooks.
+- **Styling** – Tailwind CSS v4 with custom `@theme inline` tokens in `src/app/globals.css`, plus `src/components/ui/*`
+  primitives inspired by shadcn/ui.
+- **Auth & session** – NextAuth 5 (GitHub provider), Prisma credentials, and `auth.ts` /
+  `src/app/api/auth/[...nextauth]/route.ts` wiring.
+- **Database** – Prisma 6 with migrations under `prisma/migrations`. Encrypted financial payloads stored as JSON via
+  helpers in `src/lib/encryption.ts`.
+- **Utilities** – `date-fns`, `nanoid`, `csv-parse`, `lucide-react`, and `tsx` for the automation worker.
+  `src/lib/utils.ts` exports `cn` plus helpers.
+
+## Getting started (development)
+
+1. **Install dependencies** (NextAuth 5 may need legacy peer deps):
    ```bash
-   npm install --legacy-peer-deps
+   npm install
    ```
-2. **Environment variables** – copy `.env.example` to `.env` and fill:
-   - `DATABASE_URL` (PostgreSQL connection)
-   - `NEXTAUTH_URL`, `NEXTAUTH_SECRET`
-   - `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`
-   - `ENCRYPTION_KEY` – base64 32 bytes (`openssl rand -base64 32`)
-   - `AUTOMATION_INTERVAL_MS` (optional, defaults to 5 minutes)
-   - `AUTOMATION_RESTART_DELAY_MS` (optional, defaults to 10 seconds)
-   - `AUTOMATION_DISABLED` (set to `1` to opt-out of the background worker)
-3. **Prisma client + schema**
+2. **Copy environment variables**:
+   ```bash
+   cp .env.example .env
+   ```
+   Then populate:
+    - `DATABASE_URL` → PostgreSQL connection string
+    - `NEXTAUTH_URL`, `NEXTAUTH_SECRET`
+    - `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`
+    - `ENCRYPTION_KEY` → 32-byte base64 (`openssl rand -base64 32`)
+    - Optional automation knobs: `AUTOMATION_INTERVAL_MS` (default 5 min), `AUTOMATION_RESTART_DELAY_MS` (default 10s),
+      `AUTOMATION_DISABLED=1` to skip the worker.
+3. **Generate Prisma client + schema sync**:
    ```bash
    npx prisma generate
    npx prisma db push
    ```
-4. **Run locally**
+   Use `db push` only for local dev; prod should always run `npx prisma migrate deploy`.
+4. **Run the app**:
    ```bash
    npm run dev
    ```
-   Open http://localhost:3000 – unauthenticated visitors see the marketing hero, authenticated users drop into the dashboard shell.
+   Auth via GitHub will land users in the dashboard shell; unauthenticated visitors see `LandingHero`.
 
-## Core domains
-- **Auth & security** – NextAuth 5 beta + Prisma adapter (GitHub OAuth), AES-256-GCM encryption helpers, bcrypt-hashed API keys, token-bucket rate limiting, and hardened middleware/CSP defaults.
-- **Services** – each feature has a dedicated module under `src/lib/services/*` (expenses, analytics, recurring, income, categories, imports, API keys, feed). All Prisma queries are user-scoped.
-- **Analytics** – `analytics-service` powers cash series, CSV export, forecast/anomaly detection, category health, scenario simulation, and income-flow graph data.
-- **Automation** – a Node child process runs the recurring materialization loop (configurable via `AUTOMATION_INTERVAL_MS`) so income/expense instances stay fresh even when no one is signed in, and it revokes expired API keys automatically. Import schedules (Prisma `ImportSchedule`) store template/frequency metadata and expose `/api/import/schedules` CRUD endpoints.
-- **Data ingest** – CSV routes now support preview (`/api/import/preview`), structured JSON import (`/api/import/rows`), bank templates, inline edits, bulk edit bar, and scheduled reminders, all surfaced in `/import`.
-- **UX shell** – `DashboardShell` adds quick actions, mobile pills, and command palette. `/feed` renders a unified timeline. `/settings` syncs default currency plus accent color. `/onboarding` guides first-run setup, `/home` exposes the daily summary, and smart suggestions power `/items`.
+## Database migrations & data handling
 
-## Current status (May 2025)
+- `20241012_add_expense_split_by`: adds `splitBy` to `Expense`, migrating `impactAmountEncrypted` into an explicit
+  per-row share count. The UI and services now compute `impactAmount` via `calculateImpactShare(amount, splitBy)`.
+- `20250106_add_onboarding_flag`: adds `onboardingCompleted` on `User`, gating private routes until the setup flow is
+  finished.
+- Always run `npx prisma migrate deploy` in prod so these migrations apply in order.
+- Before dropping legacy columns (e.g., `impactAmountEncrypted`), backfill data using the provided scripts (see
+  `UPDATE.md`).
 
-### Security posture
-- AES-256-GCM helpers wrap every monetary or descriptive Prisma write, keeping sensitive fields encrypted at rest while still searchable by metadata.
-- NextAuth + Prisma adapter with GitHub OAuth issues database-backed sessions, and every API route funnels through `authenticateRequest` + in-memory token buckets so both session traffic and scoped API keys are rate limited uniformly.
-- API keys use bcrypt (12 rounds) for hashing, only expose the raw value once, and the automation worker revokes anything past its `expiresAt`, reducing the blast radius of leaked secrets.
-- Middleware-level headers (HSTS, frame busting, Permissions Policy, DNS prefetch control, reference policy) reduce common web exploit vectors without relying on page-level components.
-- Zod validation guards every service boundary, so Prisma never sees untyped or over-sized payloads.
+## Deployment checklist
 
-### Known gaps
-- The current CSP still allows `'unsafe-inline'` and `'unsafe-eval'` for scripts/styles to keep legacy components running; plan to migrate remaining inline scripts and tighten the directives to eliminate XSS-friendly allowances.
-- CSV import endpoints buffer the full upload (`csv-parse` + `File.arrayBuffer`) without MIME or size caps, so keep uploads reasonable until streaming + server-side validation lands.
-- Rate limiting is process-local memory; clustered deployments or serverless scaling should front the app with a shared limiter (Redis, Fly Replay, or a WAF) to keep abuse controls consistent.
+1. **Set production environment** variables (`DATABASE_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `GITHUB_*`,
+   `ENCRYPTION_KEY`, optional automation envs). Keep `NEXT_USE_TURBOPACK=0` for reproducible builds.
+2. **Install deps** (use `npm ci` for deterministic installs).
+3. **Generate Prisma client**: `npx prisma generate`.
+4. **Apply migrations**: `npx prisma migrate deploy` (do **not** run `db push` in prod).
+5. **Build Next.js**: `NEXT_USE_TURBOPACK=0 npm run build`.
+6. **Start server**: `NODE_ENV=production npm run start` (behind PM2/systemd/Docker). Next.js automatically spawns the
+   automation worker unless `AUTOMATION_DISABLED` is set.
+7. **Smoke test**: sign in, create expenses/incomes, ensure recurring materialization and API key revocations run (check
+   logs or `action` feed).
 
-### Operational notes
-- The codebase matches the AGENTS contract (Next.js 16 / React 19 / Tailwind CSS 4) and is ready for production hardening as of May 2025.
-- `src/lib/automation/startup.ts` spawns a long-lived worker per server process; set `AUTOMATION_DISABLED=1` if your platform forbids forked children.
-- The worker currently executes through `tsx`, so keep dev dependencies installed in production or transpile `automation-worker.ts` ahead of deployment.
+## API & services overview
 
-## API endpoints
+- Expenses, recurring expenses/income, categories, imports, API keys, analytics, and dashboard data live in
+  `src/lib/services/*`. All services restrict queries to `userId`, decrypt/encrypt via `src/lib/encryption`, and rely on
+  `calculateImpactShare` from `src/lib/expense-shares`.
+- API routes under `src/app/api/*` authenticate through `src/lib/api-auth.ts`. Browser sessions and API keys share rate
+  limiting (120 req/min by default) via `consumeToken`.
+- New endpoints include `/api/export` (CSV), `/api/expenses/replace`, `/api/import` preview/routes, `/api/recurring`,
+  `/api/income`, `/api/api-keys`, and `/api/settings`.
 
-Every request must include either a valid browser session (GitHub OAuth via NextAuth) or a scoped API key sent in the `x-api-key` header (`exp_<prefix>_<secret>`). Rate limiting defaults to 120 req/min per user or API key. Scopes map 1:1 to Prisma enum values (`expenses_read`, etc.).
+## Security & governance
 
-| Endpoint | Method | Scope(s) | Query/body | Response |
-|----------|--------|----------|------------|----------|
-| `/api/expenses` | GET | `expenses_read` | `start`, `end` ISO date strings (optional) | `{ expenses: Expense[] }` encrypted fields decrypted server-side |
-| `/api/expenses` | POST | `expenses_write` | JSON `{ occurredOn, amount, description, categoryId? }` | Newly created expense |
-| `/api/expenses/bulk` | POST | `expenses_write` | `{ items: ExpenseInput[], group? }` up to 20 rows | Array of inserted expenses |
-| `/api/expenses/:id` | GET | `expenses_read` | Path param `id` | Single expense or 404 |
-| `/api/expenses/:id` | PATCH | `expenses_write` | Partial expense payload | Updated expense |
-| `/api/expenses/:id` | DELETE | `expenses_write` | – | `{ ok: true }` |
-| `/api/expenses/suggest-category` | GET | `expenses_read` | Query `description` | `{ suggestion?: { categoryId, categoryName } }` |
-| `/api/categories` | GET | `expenses_read` | – | Array of categories (auto-seeds defaults) |
-| `/api/categories` | POST | `expenses_write` | `{ id?, name, color }` | Upserted category |
-| `/api/categories/:id` | DELETE | `expenses_write` | – | `{ ok: true }` |
-| `/api/recurring` | GET | `expenses_read` | – | Active recurring expense templates |
-| `/api/recurring` | POST | `expenses_write` | `{ description, amount, dueDayOfMonth, splitBy?, categoryId? }` | Created template |
-| `/api/recurring/:id` | PUT | `expenses_write` | – | Toggled template (`isActive` flipped) |
-| `/api/recurring/:id` | PATCH | `expenses_write` | Partial template payload | Updated template |
-| `/api/recurring/:id` | DELETE | `expenses_write` | – | `{ ok: true }` |
-| `/api/income` | POST | `income_write` | `{ description, amount, occurredOn }` | Created income row |
-| `/api/income/recurring` | GET/POST | `income_write` | Similar to expenses variant (no categories) | List or created template |
-| `/api/income/recurring/:id` | PATCH/DELETE | `income_write` | Partial payload / none | Updated or `{ ok: true }` |
-| `/api/budget` | GET | `budget_read` | `month=YYYY-MM` | Monthly overview (income vs expenses, categories) |
-| `/api/spending` | GET | `analytics_read` | `preset=3m|6m|12m|ytd|custom`, `start`, `end` | Balance series + period comparison |
-| `/api/export` | GET | `analytics_read` | Same params as `/api/spending` | CSV string (text/csv) |
-| `/api/feed` | GET | `analytics_read` | `limit?`, `start?` | Activity feed entries |
-| `/api/analytics/forecast` | GET | `analytics_read` | `preset` / `start`+`end` | Forecast + actual series |
-| `/api/analytics/anomalies` | GET | `analytics_read` | `month?` | Category anomaly list |
-| `/api/analytics/category-health` | GET | `analytics_read` | `month?` | Share vs baseline stats |
-| `/api/analytics/income-flow` | GET | `analytics_read` | `month?` | `{ nodes, links }` Sankey data |
-| `/api/analytics/scenario` | POST | `analytics_read` | `{ incomeDelta?, expenseDelta?, categoryOverrides? }` | Simulated comparison |
-| `/api/api-keys` | GET | Session only | – | User’s API keys with metadata |
-| `/api/api-keys` | POST | Session only | `{ scopes: string[], description?, expiresAt? }` | `{ token, record }` (token shown once) |
-| `/api/api-keys/:id` | DELETE | Session only | – | `{ ok: true, action: "revoked"|"deleted" }` |
-| `/api/import/preview` | POST | Session only | `FormData { file, mode, template }` | `{ rows: PreviewRow[] }` |
-| `/api/import` | POST | Session only | `FormData { file, mode, template }` | `{ imported: number }` |
-| `/api/import/rows` | POST | Session only | `{ mode, rows }` structured data | `{ imported }` |
-| `/api/import/schedules` | GET/POST | Session only | Schedule CRUD payloads | `{ schedule }` |
-| `/api/import/schedules/:id` | PATCH/DELETE | Session only | Partial payload / none | `{ schedule }` or `{ ok: true }` |
-| `/api/import/schedules/:id/run` | POST | Session only | – | `{ schedule }` with updated run timestamps |
-| `/api/settings` | PATCH | Session only | `{ defaultCurrency?, accentColor? }` | Updated settings |
-
-### Identifiers & bodies
-- Dates use ISO-8601 strings; services coerce them into JS `Date`.
-- Amounts are numeric (USD/floating). `impactAmount` defaults to `amount` if omitted; provide a `splitBy` value to divide a single expense into equal shares.
-- Encrypted fields (descriptions, amounts) must always go through backend helpers; clients never send ciphertext.
-- When using API keys, include `x-api-key: exp_<prefix>_<secret>`. Scopes check per route, so e.g. hitting `/api/recurring` write endpoints requires `expenses_write`.
-- All JSON responses wrap errors as `{ error: string }` with proper HTTP status (`401`, `403`, `404`, `422`, `429`, `500`). The rate limiter sets `Retry-After` for 429s.
-
-## Frontend architecture
-- **Dashboard** – `DashboardShell` + cards (`MonthlyOverviewCard`, `QuickStats`, `CashHistoryChart`, `ExpenseFeed`, `OnboardingChecklist`). Feed/analytics/pages reuse the same shell.
-- **Analytics** – Client dashboard consumes new APIs for time ranges, insight widgets (forecast, category health, scenario planner, Sankey, anomaly list).
-- **Import** – `CsvImportForm`, `ImportPreviewTable`, and `ImportScheduleManager` compose the data-ingest workspace.
-- **Settings** – `UserSettingsForm` persists currency + accent and updates CSS custom properties on the fly.
-- **Command palette** – built with Radix dialog primitives and shadcn inputs (`⌘/Ctrl + K`).
-
-## Development tips
-- Use service helpers for all DB access; UI/route files stay thin and call services.
-- Keep encrypted fields serialized via `serializeEncrypted` before writing.
-- Add new API endpoints under `src/app/api/*`, leveraging `authenticateRequest` + `handleApiError` for consistent auth/rate-limit responses.
-- Tailwind v4 runs via `@theme inline`; custom colors live in `src/app/globals.css` (including `--user-accent`).
-
-## Production deployment
-1. **Configure environment variables** – set `DATABASE_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `GITHUB_CLIENT_ID/SECRET`, `ENCRYPTION_KEY` (base64 32 bytes), and optional automation knobs (`AUTOMATION_INTERVAL_MS`, `AUTOMATION_RESTART_DELAY_MS`, `AUTOMATION_DISABLED`). Keep `NEXT_USE_TURBOPACK=0` for reproducible builds.
-2. **Install dependencies** – run `npm ci` (skip `--omit=dev` unless you bundle the automation worker ahead of time, because it relies on `tsx`).
-3. **Generate the Prisma client** – `npx prisma generate` so the runtime can talk to your database schema.
-4. **Apply migrations** – `npx prisma migrate deploy` against production (or `prisma db push` for non-critical environments) to ensure tables match `prisma/schema.prisma`.
-5. **Build Next.js** – `NEXT_USE_TURBOPACK=0 npm run build` to emit the `.next` production bundle.
-6. **Start the server** – launch with `NODE_ENV=production npm run start` behind your process manager (systemd, PM2, Docker, etc.); Next.js will automatically run the automation worker unless `AUTOMATION_DISABLED=1`.
-7. **Smoke test** – sign in via GitHub, create an expense, run `npx prisma studio` or check logs to ensure recurring materialization + API key revocation jobs are ticking.
+- AES-256-GCM encryptors for money/description fields; decrypted only in server services.
+- API keys hashed with bcrypt (12 rounds) and scoped via `ApiScope` enums. Raw keys display only during creation and are
+  revoked automatically by the automation worker when expired.
+- Middleware (`middleware.ts`) sets CSP, HSTS, Permissions Policy, and other headers.
+- `authenticateRequest` enforces scopes and rate limits. Automation worker also enforces `AUTOMATION_DISABLED` toggles.
 
 ## Troubleshooting
-- **`@prisma/client did not initialize`** – run `npx prisma generate` after editing `schema.prisma`.
-- **`public.Session` missing** – run `npx prisma db push` so NextAuth tables exist.
-- **`UnknownAction` during GitHub login** – ensure CTAs point to `/api/auth/signin?provider=github` and restart `next dev` after dependency changes.
-- **Lint script** – `next lint` is no longer bundled with Next 16; the `npm run lint` script currently errors with “Invalid project directory …/lint”. Replace with a custom ESLint config or remove the script if unused.
 
-See `AGENTS.md` for the exhaustive architectural brief, flows, and verification checklist.
+- Missing Prisma client: rerun `npx prisma generate`.
+- NextAuth tables missing: `npx prisma db push` for dev or `npx prisma migrate deploy` for prod.
+- Automation worker errors: check env vars, ensure `tsx` is installed (`npm install tsx` used by default), and that the
+  worker isn’t disabled by `AUTOMATION_DISABLED=1`.
+- API rate limits: non-privileged keys or sessions can hit 429; respect the `Retry-After` header.
+
+## Contributing & publishing notes
+
+- Follow `AGENTS.md` for the full architecture/feature/integration guide before extending or rebuilding the product.
+- Keep encrypted payloads serialized via `serializeEncrypted` before writing to Prisma.
+- If you introduce new migrations, run `npx prisma migrate dev` locally and commit the generated files under
+  `prisma/migrations`.
+- Use `npm run dev` for iterative work, `npm run build` for production checks, and `npm start` for the production
+  server.
+
+## License
+
+Expense Flow is released under the MIT License. See `LICENSE.md` for details.

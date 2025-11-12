@@ -1,5 +1,5 @@
-import { ensureAutomationProcess } from "@/lib/automation/automation-process"
+import {ensureAutomationProcess} from "@/lib/automation/automation-process"
 
 if (typeof window === "undefined") {
-  ensureAutomationProcess()
+    ensureAutomationProcess()
 }
