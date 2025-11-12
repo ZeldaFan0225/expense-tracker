@@ -100,11 +100,11 @@ export function ExpenseItemBuilder({
       ? initialItems
       : [undefined]
     ).map((item) => createDefaultItem(item))
-    const enabled = Boolean(initialGroup)
+    const hasGroup = Boolean(initialGroup) || mappedItems.length > 1
     return {
       items: mappedItems,
-      groupEnabled: enabled,
-      group: enabled
+      groupEnabled: hasGroup,
+      group: hasGroup
         ? {
             title: initialGroup?.title ?? "",
             notes: initialGroup?.notes ?? "",
