@@ -1,31 +1,78 @@
-# Expense Flow Security Summary (May 2025)
+# Security Audit Report
 
-## Context & Scope
-- Repository: Expense Flow (Next.js 16 / React 19 / Tailwind CSS v4 / Prisma 6).
-- Inputs: `AGENTS.md` product contract, `README.md`, security-related source (encryption, auth, middleware, services).
-- Focus: present-day security posture, observed weaknesses, and deployment advice for production parity.
+## 1. Executive Summary
 
-## Defensive Highlights
-1. **Encrypted domain data** – `encryptString/encryptNumber` enforce AES-256-GCM for all sensitive Prisma writes, so descriptions and monetary values never rest in plaintext (src/lib/encryption.ts:1-104, src/lib/services/expense-service.ts:33-135).
-2. **Auth + scope enforcement** – every API route calls `authenticateRequest`, which validates NextAuth sessions or bcrypt-backed API keys, checks scopes, and rate-limits per identifier/path combo (src/lib/api-auth.ts:1-108).
-3. **API key lifecycle** – secrets are random `exp_<prefix>_<secret>` strings hashed with bcrypt (12 rounds), only shown once to the user, and revoked automatically once `expiresAt` passes thanks to the automation worker (src/lib/api-keys.ts:1-34, src/lib/services/api-key-service.ts:17-41, src/lib/automation/automation-worker.ts:35-90).
-4. **Middleware hardening** – global middleware applies HSTS, frame busting, Permissions Policy, DNS prefetch control, and a baseline CSP to shrink common browser attack surface (middleware.ts:4-35).
-5. **Strict payload validation** – Zod schemas wrap every service boundary (expenses, CSV import, API keys, settings, etc.), preventing type confusion and overlong inputs from touching Prisma directly (src/lib/validation.ts:1-104).
+This report details a security audit of the Expense Tracker application. The audit focused on identifying potential vulnerabilities related to SQL injection, unauthorized data access, denial of service, and authentication.
 
-## Notable Gaps & Risks
-1. **Permissive CSP directives** – `'unsafe-inline'` and `'unsafe-eval'` are still enabled so legacy components work, leaving room for XSS until inline scripts/styles are removed or the CSP is tightened (middleware.ts:16-24).
-2. **CSV import resource exhaustion** – file uploads are fully buffered with `File.arrayBuffer()` + `csv-parse` and lack MIME/size enforcement, meaning a large CSV can starve memory/CPU; streaming parsers or server-side caps are needed (src/lib/services/import-service.ts:77-158).
-3. **Process-local rate limiting** – the in-memory token bucket resets per server instance and after restarts, so clustered deployments need a shared limiter (Redis, edge WAF, Fly Replay) to keep abuse controls intact (src/lib/rate-limit.ts:6-29).
-4. **API key metadata exposure** – `GET /api/api-keys` returns each record and its hashed secret, which is unnecessary for clients; trim sensitive fields before responding (src/app/api/api-keys/route.ts:10-45).
+The application appears to be a Next.js application using Prisma as an ORM, which significantly reduces the risk of SQL injection. However, several areas of concern have been identified, particularly regarding authorization and potential denial of service vectors.
 
-## Production Deployment Considerations
-1. **Environment** – define `DATABASE_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, GitHub OAuth keys, and a base64 32-byte `ENCRYPTION_KEY`; tune automation flags (`AUTOMATION_INTERVAL_MS`, `AUTOMATION_RESTART_DELAY_MS`, `AUTOMATION_DISABLED`) and keep `NEXT_USE_TURBOPACK=0`.
-2. **Install & build** – run `npm ci`, then `npx prisma generate` and `npx prisma migrate deploy` (or `db push` for staging), followed by `NEXT_USE_TURBOPACK=0 npm run build`.
-3. **Run** – start with `NODE_ENV=production npm run start` behind your process manager; the automation worker (tsx child) will boot unless explicitly disabled, so ensure dev dependencies remain available or precompile the worker.
-4. **Smoke test** – authenticate via GitHub, create fresh expenses/income, exercise recurring materialization, and confirm automation logs + API key revocation to verify background jobs.
+## 2. Findings
 
-## Recommended Next Actions
-1. Eliminate inline scripts/styles (or move them behind hashes) so the CSP can drop `'unsafe-inline'`/`'unsafe-eval'`.
-2. Introduce upload guards for CSV endpoints (content-type checks, size caps, streaming parser) to prevent denial-of-service vectors.
-3. Replace the in-memory limiter with a shared service (Redis, Upstash, Fly, Cloudflare Turnstile/WAF) ahead of horizontal scaling.
-4. Sanitize API-key list/create responses to omit hashed secrets and other unused internals, returning only metadata the dashboard actually needs.
+### 2.1. SQL Injection - Low Risk
+
+The application uses Prisma for database access, which is a modern ORM that promotes the use of parameterized queries. This significantly mitigates the risk of SQL injection vulnerabilities. No raw SQL queries were found in the codebase, which is a good security practice.
+
+**Recommendation:** Continue to exclusively use the Prisma client for all database interactions. Avoid raw SQL queries (`$queryRaw`) unless absolutely necessary, and if so, ensure that all user input is properly sanitized.
+
+### 2.2. Unauthorized Data Access - High Risk
+
+A significant concern is the potential for users to access or modify data that does not belong to them. This is a common issue in multi-tenant applications. The application needs to ensure that every database query is scoped to the currently authenticated user.
+
+**Vulnerable Areas:**
+
+*   **API Routes:** All API routes in `src/app/api` that access or modify data (e.g., `expenses`, `categories`, `income`) must have strict authorization checks. For example, when fetching an expense by ID, the query must check that the expense belongs to the current user.
+*   **Example:** In `src/app/api/expenses/[id]/route.ts`, the code to fetch an expense should look something like this:
+
+```typescript
+const expense = await prisma.expense.findUnique({
+  where: {
+    id: params.id,
+    userId: session.user.id, // Ensure the expense belongs to the current user
+  },
+});
+```
+
+**Recommendation:**
+
+1.  **Implement Authorization Middleware:** Create a middleware that checks for a valid session on all API routes that require authentication.
+2.  **Scope all Queries:** Review every database query to ensure it is scoped to the currently authenticated user. This is critical for all GET, POST, PUT, and DELETE operations on resources.
+3.  **Centralize Authorization Logic:** The logic for checking user ownership of resources should be centralized in a reusable function or module, like in `src/lib/api-auth.ts`.
+
+### 2.3. Denial of Service (DoS) - Medium Risk
+
+Several potential vectors for Denial of Service attacks were identified.
+
+*   **Rate Limiting:** The application appears to have some rate-limiting logic in `src/lib/rate-limit.ts`. However, it's crucial to ensure that this is applied to all public-facing API endpoints, especially those that are computationally expensive.
+*   **Bulk Operations:** The `src/app/api/expenses/bulk/route.ts` endpoint for bulk expense creation could be abused to create a large number of expenses in a single request, potentially overwhelming the database.
+*   **File Imports:** The `src/app/api/import` endpoint could be vulnerable if large files are uploaded, or if the import process is computationally expensive.
+
+**Recommendation:**
+
+1.  **Enforce Rate Limiting:** Apply rate limiting to all sensitive and computationally expensive API endpoints.
+2.  **Validate and Limit Bulk Operations:** For bulk endpoints, limit the number of items that can be created in a single request.
+3.  **Secure File Uploads:** For file imports, limit the maximum file size and ensure that the parsing and processing of the file are done efficiently. Consider using a background worker for large file processing.
+
+### 2.4. Authentication - Medium Risk
+
+The application uses NextAuth.js for authentication, which is a robust and secure library. However, the configuration and implementation need to be secure.
+
+*   **Session Management:** Ensure that session cookies are configured with `httpOnly`, `secure`, and `sameSite` attributes to prevent cross-site scripting (XSS) and cross-site request forgery (CSRF) attacks.
+*   **Credential Handling:** The `[...nextauth]` route in `src/app/api/auth` is the core of the authentication system. It's crucial to ensure that it is configured correctly and that secrets (like `NEXTAUTH_SECRET`) are stored securely and not exposed.
+
+**Recommendation:**
+
+1.  **Review NextAuth.js Configuration:** Double-check the NextAuth.js configuration to ensure it follows security best practices.
+2.  **Secure `NEXTAUTH_SECRET`:** Ensure that the `NEXTAUTH_SECRET` environment variable is a strong, random string and is not committed to version control.
+
+## 4. Future Recommendations
+
+### 4.1. Tighten Content Security Policy (CSP)
+
+The current Content Security Policy (CSP) in `middleware.ts` allows `'unsafe-inline'` and `'unsafe-eval'` for scripts, and `'unsafe-inline'` for styles. This is not ideal for production as it can open up the application to Cross-Site Scripting (XSS) attacks.
+
+**Recommendation:**
+
+*   **Remove `'unsafe-inline'` and `'unsafe-eval'`:** The long-term goal should be to remove `'unsafe-inline'` and `'unsafe-eval'` from the CSP. This can be a complex task, as it requires identifying all the inline scripts and styles and replacing them with non-inline alternatives (e.g., by using a nonce or hash).
+*   **Use a Nonce-based Approach:** A nonce-based approach is a good way to allow inline scripts and styles from a trusted source. This involves generating a random nonce on the server for each request, and then adding that nonce to the CSP header and to the inline script and style tags.
+
+By implementing a stricter CSP, the application's defense against XSS attacks can be significantly improved.

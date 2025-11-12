@@ -35,12 +35,8 @@ export async function upsertCategory(userId: string, payload: unknown) {
   const data = categorySchema.parse(payload)
 
   if (data.id) {
-    await prisma.category.findFirstOrThrow({
-      where: { id: data.id, userId },
-    })
-
     return prisma.category.update({
-      where: { id: data.id },
+      where: { id: data.id, userId },
       data: {
         name: data.name,
         color: data.color,
@@ -58,11 +54,7 @@ export async function upsertCategory(userId: string, payload: unknown) {
 }
 
 export async function deleteCategory(userId: string, id: string) {
-  await prisma.category.findFirstOrThrow({
-    where: { id, userId },
-  })
-
   await prisma.category.delete({
-    where: { id },
+    where: { id, userId },
   })
 }

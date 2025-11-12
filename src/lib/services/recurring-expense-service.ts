@@ -59,45 +59,26 @@ export async function updateRecurringExpense(
     throw new Error("Recurring expense id is required")
   }
   const data = recurringExpenseUpdateSchema.parse(payload)
-  const existing = await prisma.recurringExpense.findFirstOrThrow({
+
+  const updated = await prisma.recurringExpense.update({
     where: { id, userId },
+    data: {
+      categoryId: data.categoryId,
+      dueDayOfMonth: data.dueDayOfMonth,
+      splitBy: data.splitBy,
+      amountEncrypted:
+        data.amount !== undefined
+          ? serializeEncrypted(encryptNumber(data.amount))
+          : undefined,
+      descriptionEncrypted:
+        data.description !== undefined
+          ? serializeEncrypted(encryptString(data.description))
+          : undefined,
+      isActive: data.isActive,
+    },
   })
 
-  const updates: Prisma.RecurringExpenseUncheckedUpdateInput = {}
-
-  if (data.categoryId !== undefined) {
-    updates.categoryId = data.categoryId
-  }
-  if (data.dueDayOfMonth !== undefined) {
-    updates.dueDayOfMonth = data.dueDayOfMonth
-  }
-  if (data.splitBy !== undefined) {
-    updates.splitBy = data.splitBy
-  }
-  if (data.amount !== undefined) {
-    updates.amountEncrypted = serializeEncrypted(encryptNumber(data.amount))
-  }
-  if (data.description !== undefined) {
-    updates.descriptionEncrypted = serializeEncrypted(
-      encryptString(data.description)
-    )
-  }
-  if (data.isActive !== undefined) {
-    updates.isActive = data.isActive
-  }
-
-  if (Object.keys(updates).length === 0) {
-    return mapTemplate(existing)
-  }
-
-  await prisma.recurringExpense.update({
-    where: { id },
-    data: updates,
-  })
-  const fresh = await prisma.recurringExpense.findFirstOrThrow({
-    where: { id, userId },
-  })
-  return mapTemplate(fresh)
+  return mapTemplate(updated)
 }
 
 export async function toggleRecurringExpense(userId: string, id: string) {
@@ -107,27 +88,18 @@ export async function toggleRecurringExpense(userId: string, id: string) {
   const template = await prisma.recurringExpense.findFirstOrThrow({
     where: { id, userId },
   })
-  const result = await prisma.recurringExpense.updateMany({
+  const updated = await prisma.recurringExpense.update({
     where: { id, userId },
     data: { isActive: !template.isActive },
   })
-  if (result.count === 0) {
-    throw new Error("Recurring expense not found")
-  }
-  const fresh = await prisma.recurringExpense.findFirstOrThrow({
-    where: { id, userId },
-  })
-  return mapTemplate(fresh)
+  return mapTemplate(updated)
 }
 
 export async function deleteRecurringExpense(userId: string, id: string) {
   if (!id) {
     throw new Error("Recurring expense id is required")
   }
-  await prisma.recurringExpense.findFirstOrThrow({
-    where: { id, userId },
-  })
   await prisma.recurringExpense.delete({
-    where: { id },
+    where: { id, userId },
   })
 }

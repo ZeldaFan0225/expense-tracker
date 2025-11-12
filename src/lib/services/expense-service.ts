@@ -114,7 +114,7 @@ export async function updateExpense(userId: string, id: string, payload: unknown
   })
 
   const updated = await prisma.expense.update({
-    where: { id },
+    where: { id, userId },
     data: {
       occurredOn: data.occurredOn,
       categoryId: data.categoryId,
@@ -140,11 +140,8 @@ export async function updateExpense(userId: string, id: string, payload: unknown
 }
 
 export async function deleteExpense(userId: string, id: string) {
-  await prisma.expense.findFirstOrThrow({
-    where: { id, userId },
-  })
   await prisma.expense.delete({
-    where: { id },
+    where: { id, userId },
   })
 }
 
@@ -194,6 +191,84 @@ export async function bulkCreateExpenses(userId: string, payload: unknown) {
   )
 
   return created.map(mapExpense)
+}
+
+export async function replaceExpenses(
+  userId: string,
+  expenseIds: string[],
+  payload: unknown
+) {
+  if (!expenseIds.length) {
+    throw new Error("No expenses selected")
+  }
+
+  const data = bulkExpenseSchema.parse(payload)
+
+  const existing = await prisma.expense.findMany({
+    where: { userId, id: { in: expenseIds } },
+    select: { id: true, groupId: true },
+  })
+
+  if (existing.length !== expenseIds.length) {
+    throw new Error("Some expenses were not found")
+  }
+
+  const groupIds = Array.from(
+    new Set(existing.map((expense) => expense.groupId).filter(Boolean))
+  ) as string[]
+
+  const results = await prisma.$transaction(async (tx) => {
+    await tx.expense.deleteMany({
+      where: { userId, id: { in: expenseIds } },
+    })
+
+    for (const groupId of groupIds) {
+      const remaining = await tx.expense.count({ where: { groupId } })
+      if (remaining === 0) {
+        await tx.expenseGroup.delete({ where: { id: groupId, userId } })
+      }
+    }
+
+    const group = data.group
+      ? await tx.expenseGroup.create({
+          data: {
+            userId,
+            splitBy: data.group.splitBy,
+            titleEncrypted: serializeEncrypted(
+              encryptString(data.group.title ?? "")
+            ),
+            notesEncrypted: data.group.notes
+              ? serializeEncrypted(encryptString(data.group.notes))
+              : undefined,
+          },
+        })
+      : null
+
+    const created = await Promise.all(
+      data.items.map((item) =>
+        tx.expense.create({
+          data: {
+            userId,
+            occurredOn: item.occurredOn,
+            categoryId: item.categoryId,
+            groupId: group?.id,
+            amountEncrypted: serializeEncrypted(encryptNumber(item.amount)),
+            impactAmountEncrypted: serializeEncrypted(
+              encryptNumber(item.impactAmount ?? item.amount)
+            ),
+            descriptionEncrypted: serializeEncrypted(
+              encryptString(item.description)
+            ),
+          },
+          include: { category: true, group: true },
+        })
+      )
+    )
+
+    return created.map(mapExpense)
+  })
+
+  return results
 }
 
 export async function summarizeExpenses(userId: string, start: Date, end: Date) {

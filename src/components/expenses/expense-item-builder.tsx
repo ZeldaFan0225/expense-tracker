@@ -18,7 +18,23 @@ type Category = {
   color: string
 }
 
+type ExistingItemInput = {
+  id?: string
+  description: string
+  amount: number
+  impactAmount?: number | null
+  occurredOn: string | Date
+  categoryId?: string | null
+}
+
+type InitialGroupInput = {
+  title?: string | null
+  notes?: string | null
+  splitBy?: number | null
+}
+
 const expenseItemSchema = z.object({
+  id: z.string().cuid().optional(),
   description: z.string().min(1, "Description required"),
   amount: z.string().min(1, "Amount required"),
   impactAmount: z.string().optional(),
@@ -40,15 +56,26 @@ const builderSchema = z.object({
 })
 
 type FormValues = z.infer<typeof builderSchema>
+export type ExpenseItemBuilderValues = FormValues
 
 type ExpenseItemBuilderProps = {
   categories: Category[]
   suggestions: string[]
+  initialItems?: ExistingItemInput[]
+  initialGroup?: InitialGroupInput
+  submitLabel?: string
+  onSubmitOverride?: (values: FormValues) => Promise<void>
+  disableAutoReset?: boolean
 }
 
 export function ExpenseItemBuilder({
   categories,
   suggestions,
+  initialItems,
+  initialGroup,
+  submitLabel = "Save expenses",
+  onSubmitOverride,
+  disableAutoReset = false,
 }: ExpenseItemBuilderProps) {
   const { showToast } = useToast()
   const [categoryHints, setCategoryHints] = React.useState<
@@ -57,14 +84,33 @@ export function ExpenseItemBuilder({
   const [bulkCategory, setBulkCategory] = React.useState("")
   const [bulkDate, setBulkDate] = React.useState("")
 
+  const defaultValues = React.useMemo(() => {
+    const mappedItems = (initialItems && initialItems.length
+      ? initialItems
+      : [undefined]
+    ).map((item) => createDefaultItem(item))
+    const enabled = Boolean(initialGroup)
+    return {
+      items: mappedItems,
+      groupEnabled: enabled,
+      group: enabled
+        ? {
+            title: initialGroup?.title ?? "",
+            notes: initialGroup?.notes ?? "",
+            splitBy: (initialGroup?.splitBy ?? 1).toString(),
+          }
+        : undefined,
+    }
+  }, [initialItems, initialGroup])
+
   const form = useForm<FormValues>({
     resolver: zodResolver(builderSchema),
-    defaultValues: {
-      items: [createDefaultItem()],
-      groupEnabled: false,
-      group: undefined,
-    },
+    defaultValues,
   })
+
+  React.useEffect(() => {
+    form.reset(defaultValues)
+  }, [defaultValues, form])
 
   const {
     control,
@@ -137,6 +183,7 @@ export function ExpenseItemBuilder({
         key={field.id}
         className="rounded-2xl border p-4 shadow-xs space-y-4"
       >
+        <input type="hidden" {...register(`items.${index}.id` as const)} />
         <div className="flex items-center justify-between">
           <p className="text-sm font-medium text-muted-foreground">
             Expense {index + 1}
@@ -237,6 +284,10 @@ export function ExpenseItemBuilder({
   })
 
   const onSubmit = async (values: FormValues) => {
+    if (onSubmitOverride) {
+      await onSubmitOverride(values)
+      return
+    }
     try {
       const payload = {
         items: values.items.map((item) => ({
@@ -269,11 +320,13 @@ export function ExpenseItemBuilder({
         throw new Error(data.error ?? "Failed to create expenses")
       }
 
-      reset({
-        items: [createDefaultItem()],
-        groupEnabled: false,
-        group: undefined,
-      })
+      if (!disableAutoReset) {
+        reset({
+          items: [createDefaultItem()],
+          groupEnabled: false,
+          group: undefined,
+        })
+      }
       showToast({
         title: "Expenses recorded",
         description: `${values.items.length} item(s) saved`,
@@ -354,7 +407,7 @@ export function ExpenseItemBuilder({
               Add another item
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : "Save expenses"}
+              {isSubmitting ? "Saving..." : submitLabel}
             </Button>
           </div>
 
@@ -447,12 +500,26 @@ function SuggestionRow({
   )
 }
 
-function createDefaultItem() {
+function createDefaultItem(item?: ExistingItemInput) {
+  const occurredOnDate = item?.occurredOn
+    ? new Date(item.occurredOn)
+    : new Date()
+  const safeDate = Number.isNaN(occurredOnDate.getTime())
+    ? new Date()
+    : occurredOnDate
+
   return {
-    description: "",
-    amount: "",
-    impactAmount: "",
-    occurredOn: new Date().toISOString().split("T")[0],
-    categoryId: "",
+    id: item?.id,
+    description: item?.description ?? "",
+    amount:
+      typeof item?.amount === "number" && !Number.isNaN(item.amount)
+        ? item.amount.toString()
+        : "",
+    impactAmount:
+      typeof item?.impactAmount === "number" && !Number.isNaN(item.impactAmount)
+        ? item.impactAmount.toString()
+        : "",
+    occurredOn: safeDate.toISOString().split("T")[0],
+    categoryId: item?.categoryId ?? "",
   }
 }

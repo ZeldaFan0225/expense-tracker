@@ -36,11 +36,8 @@ export async function addIncome(userId: string, payload: unknown) {
 }
 
 export async function deleteIncome(userId: string, id: string) {
-  await prisma.income.findFirstOrThrow({
-    where: { id, userId },
-  })
   await prisma.income.delete({
-    where: { id },
+    where: { id, userId },
   })
 }
 
@@ -53,42 +50,23 @@ export async function updateIncome(
     throw new Error("Income id is required")
   }
   const data = incomeUpdateSchema.parse(payload)
-  const existing = await prisma.income.findFirstOrThrow({
+
+  const updated = await prisma.income.update({
     where: { id, userId },
+    data: {
+      amountEncrypted:
+        data.amount !== undefined
+          ? serializeEncrypted(encryptNumber(data.amount))
+          : undefined,
+      descriptionEncrypted:
+        data.description !== undefined
+          ? serializeEncrypted(encryptString(data.description))
+          : undefined,
+      occurredOn: data.occurredOn,
+    },
   })
-  if (existing.recurringSourceId) {
-    throw new Error("Recurring income entries cannot be edited")
-  }
 
-  const updates: Prisma.IncomeUpdateInput = {}
-
-  if (data.amount !== undefined) {
-    updates.amountEncrypted = serializeEncrypted(encryptNumber(data.amount))
-  }
-  if (data.description !== undefined) {
-    updates.descriptionEncrypted = serializeEncrypted(
-      encryptString(data.description)
-    )
-  }
-  if (data.occurredOn !== undefined) {
-    updates.occurredOn = data.occurredOn
-  }
-
-  if (Object.keys(updates).length === 0) {
-    return mapIncome(existing)
-  }
-
-  const result = await prisma.income.updateMany({
-    where: { id, userId },
-    data: updates,
-  })
-  if (result.count === 0) {
-    throw new Error("Income entry not found")
-  }
-  const fresh = await prisma.income.findFirstOrThrow({
-    where: { id, userId },
-  })
-  return mapIncome(fresh)
+  return mapIncome(updated)
 }
 
 export async function listIncomeForRange(
