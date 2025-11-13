@@ -223,19 +223,17 @@ export async function getAvailableBalanceSeries(
         {}
     )
 
-    let runningBalance = 0
     const series = months.map((month) => {
         const key = monthKey(month)
         const monthIncome = incomeByMonth[key] ?? 0
         const monthExpenses = expenseByMonth[key] ?? 0
-        runningBalance += monthIncome - monthExpenses
 
         return {
             key,
             label: format(month, "MMM yyyy"),
             income: monthIncome,
             expenses: monthExpenses,
-            balance: runningBalance,
+            balance: monthIncome - monthExpenses,
         }
     })
 
@@ -317,8 +315,8 @@ export async function getForecast(
         net: point.income - point.expenses,
     }))
 
-    const window = Math.min(3, history.length)
-    const recent = history.slice(-window)
+    const window = history.length
+    const recent = history
     const movingAverage =
         recent.length === 0
             ? 0
@@ -402,8 +400,7 @@ export async function detectSpendingAnomalies(
         const previousValues = monthsWithoutCurrent.map(([, amount]) => amount)
         const stats = calculateStats(previousValues)
         const current = value.months.get(currentKey) ?? 0
-        if (stats.std === 0) return
-        const zScore = (current - stats.mean) / stats.std
+        const zScore = stats.std === 0 ? (current > stats.mean ? Infinity : 0) : (current - stats.mean) / stats.std
         if (zScore >= 2) {
             anomalies.push({
                 categoryId: value.descriptor.id,
@@ -460,6 +457,7 @@ export async function getCategoryHealth(
 
     const health: CategoryHealthEntry[] = overview.categoryTotals.map((category) => {
         const baseline = baselineTotals[category.id]
+        const baselineAverage = (baseline?.value ?? 0) / baselineMonths
         const baselineShare = baselineSum
             ? (baseline?.value ?? 0) / baselineSum
             : 0
@@ -469,7 +467,7 @@ export async function getCategoryHealth(
             label: category.label,
             color: category.color,
             actual: category.value,
-            baseline: baseline?.value ?? 0,
+            baseline: baselineAverage,
             delta: actualShare - baselineShare,
             status: actualShare > baselineShare ? "over" : "under",
         }
@@ -484,7 +482,7 @@ export async function getCategoryHealth(
             label: entry.descriptor.label,
             color: entry.descriptor.color,
             actual: 0,
-            baseline: entry.value,
+            baseline: entry.value / baselineMonths,
             delta: -baselineShare,
             status: "under",
         })

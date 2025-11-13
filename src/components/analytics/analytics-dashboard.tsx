@@ -593,7 +593,7 @@ function CategoryHealthCard({
                 <div>
                     <CardTitle>Category health</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                        Compare this month vs baseline averages
+                        Compare this month's spending vs. the average monthly spending over the baseline period.
                     </p>
                 </div>
             </CardHeader>
@@ -635,6 +635,8 @@ function CategoryHealthCard({
     )
 }
 
+import {AnomalyChart} from "@/components/analytics/anomaly-chart"
+
 function AnomalyCard({
                          anomalies,
                          currency,
@@ -656,27 +658,35 @@ function AnomalyCard({
                         No suspicious spend detected this month.
                     </p>
                 ) : (
-                    <ul className="space-y-2">
+                    <ul className="space-y-4">
                         {anomalies.map((anomaly) => (
                             <li
                                 key={anomaly.categoryId}
-                                className="flex items-center justify-between rounded-2xl border px-4 py-3"
+                                className="rounded-2xl border p-4"
                             >
-                                <div>
-                                    <p className="font-medium">{anomaly.categoryLabel}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        Mean {formatCurrency(anomaly.mean, currency)} · σ=
-                                        {formatCurrency(anomaly.std, currency)}
-                                    </p>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="font-medium">{anomaly.categoryLabel}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            Mean {formatCurrency(anomaly.mean, currency)} · σ=
+                                            {formatCurrency(anomaly.std, currency)}
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-sm font-semibold text-rose-500">
+                                            {formatCurrency(anomaly.current, currency)}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            z-score {anomaly.zScore === null ? "∞" : anomaly.zScore.toFixed(1)}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-sm font-semibold text-rose-500">
-                                        {formatCurrency(anomaly.current, currency)}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                        z-score {anomaly.zScore.toFixed(1)}
-                                    </p>
-                                </div>
+                                <AnomalyChart
+                                    mean={anomaly.mean}
+                                    std={anomaly.std}
+                                    current={anomaly.current}
+                                    currency={currency}
+                                />
                             </li>
                         ))}
                     </ul>
