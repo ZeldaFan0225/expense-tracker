@@ -1,5 +1,6 @@
 import * as React from "react"
 import {format} from "date-fns"
+import Link from "next/link"
 import {Activity, Banknote, CalendarClock, KeyRound, RefreshCcw, Wallet} from "lucide-react"
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card"
 import type {FeedEvent} from "@/lib/services/feed-service"
@@ -77,7 +78,17 @@ export function FeedTimeline({
                                     </p>
                                     {event.subtitle ? (
                                         <p className="text-xs text-muted-foreground">
-                                            {event.subtitle}
+                                            {event.subtitle === "Recurring income" ? (
+                                                <Link href="/income" className="underline">
+                                                    Recurring income
+                                                </Link>
+                                            ) : event.subtitle === "Recurring expense" ? (
+                                                <Link href="/recurring" className="underline">
+                                                    Recurring expense
+                                                </Link>
+                                            ) : (
+                                                event.subtitle
+                                            )}
                                         </p>
                                     ) : null}
                                     <p className="text-xs text-muted-foreground">

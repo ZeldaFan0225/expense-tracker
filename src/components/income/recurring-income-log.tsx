@@ -9,11 +9,14 @@ import {Label} from "@/components/ui/label"
 import {formatCurrency} from "@/lib/currency"
 import {useToast} from "@/components/providers/toast-provider"
 
+import Link from "next/link"
+
 type IncomeRow = {
     id: string
     description: string
     occurredOn: Date
     amount: number
+    recurringSourceId: string | null
 }
 
 type RecurringIncomeLogProps = {
@@ -101,6 +104,13 @@ export function RecurringIncomeLog({initialIncomes, currency}: RecurringIncomeLo
                                         <tr className="align-middle">
                                             <td className="py-3">
                                                 <p className="font-medium text-foreground">{income.description}</p>
+                                                {income.recurringSourceId ? (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        <Link href="/income" className="underline">
+                                                            Recurring income
+                                                        </Link>
+                                                    </p>
+                                                ) : null}
                                             </td>
                                             <td className="py-3 text-muted-foreground">{dateLabel}</td>
                                             <td className="py-3 pr-3 text-right font-semibold text-emerald-500">

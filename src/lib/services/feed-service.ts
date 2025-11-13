@@ -151,17 +151,19 @@ export async function getActivityFeed(userId: string, take = 40, options?: FeedO
                 bucket.createdAt = expense.createdAt
             }
         } else {
+            const isRecurringInstance = Boolean(expense.recurringSourceId)
             feed.push({
                 id: expense.id,
                 type: "expense",
                 title: description,
-                subtitle: categoryName,
+                subtitle: isRecurringInstance ? "Recurring expense" : categoryName,
                 amount: impactAmount,
                 actualAmount,
                 splitBy: splitBy > 1 ? splitBy : undefined,
                 category: categoryName,
                 timestamp: expense.occurredOn,
                 createdAt: expense.createdAt,
+                recurringSourceId: expense.recurringSourceId ?? undefined,
             })
         }
     }
