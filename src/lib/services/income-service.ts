@@ -108,3 +108,16 @@ export async function getIncomeHistory(userId: string, months = 6) {
         }
     })
 }
+
+export async function listMaterializedRecurringIncome(userId: string) {
+    const incomes = await prisma.income.findMany({
+        where: {
+            userId,
+            recurringSourceId: {
+                not: null,
+            },
+        },
+        orderBy: {occurredOn: "desc"},
+    })
+    return incomes.map(mapIncome)
+}

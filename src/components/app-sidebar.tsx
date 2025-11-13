@@ -50,6 +50,7 @@ const navigation = [
             {title: "Automation feed", href: "/automation-feed", icon: Sparkles},
             {title: "Recurring expenses", href: "/recurring", icon: Repeat2},
             {title: "Income planning", href: "/income", icon: BadgeDollarSign},
+            {title: "Recurring Income Log", href: "/automation/recurring-income-log", icon: ListOrdered},
             {title: "Categories", href: "/categories", icon: Shield},
             {title: "Scenario planner", href: "/analytics/scenario", icon: Sparkles},
         ],

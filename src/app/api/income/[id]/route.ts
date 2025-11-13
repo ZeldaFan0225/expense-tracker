@@ -1,31 +1,42 @@
-import type {NextRequest} from "next/server"
-import {authenticateRequest} from "@/lib/api-auth"
+import {NextResponse} from "next/server"
+import {auth} from "@/lib/auth-server"
 import {deleteIncome, updateIncome} from "@/lib/services/income-service"
-import {handleApiError, json} from "@/lib/http"
+import {incomeUpdateSchema} from "@/lib/validation"
 
-type Context = {
-    params: Promise<{ id: string }>
-}
+export async function PATCH(
+    req: Request,
+    {params}: { params: { id: string } }
+) {
+    const session = await auth()
+    if (!session?.user) {
+        return NextResponse.json({error: "Unauthorized"}, {status: 401})
+    }
 
-export async function PATCH(request: NextRequest, context: Context) {
     try {
-        const {id} = await context.params
-        const auth = await authenticateRequest(request, ["income_write"])
-        const payload = await request.json()
-        const income = await updateIncome(auth.userId, id, payload)
-        return json(income)
+        const body = await req.json()
+        const payload = incomeUpdateSchema.parse(body)
+        const updated = await updateIncome(session.user.id, params.id, payload)
+        return NextResponse.json(updated)
     } catch (error) {
-        return handleApiError(error)
+        console.error(error)
+        return NextResponse.json({error: "Failed to update income"}, {status: 500})
     }
 }
 
-export async function DELETE(request: NextRequest, context: Context) {
+export async function DELETE(
+    req: Request,
+    {params}: { params: { id: string } }
+) {
+    const session = await auth()
+    if (!session?.user) {
+        return NextResponse.json({error: "Unauthorized"}, {status: 401})
+    }
+
     try {
-        const {id} = await context.params
-        const auth = await authenticateRequest(request, ["income_write"])
-        await deleteIncome(auth.userId, id)
-        return json({ok: true})
+        await deleteIncome(session.user.id, params.id)
+        return NextResponse.json({success: true})
     } catch (error) {
-        return handleApiError(error)
+        console.error(error)
+        return NextResponse.json({error: "Failed to delete income"}, {status: 500})
     }
 }
