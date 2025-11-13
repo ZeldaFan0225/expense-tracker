@@ -115,13 +115,11 @@ function calculateStats(values: number[]) {
     return {mean, std: Math.sqrt(variance)}
 }
 
-export async function getMonthlyOverview(
+async function getRangeOverview(
     userId: string,
-    month: Date = new Date()
+    start: Date,
+    end: Date
 ) {
-    const start = startOfMonth(month)
-    const end = endOfMonth(month)
-
     const [expenses, incomes] = await Promise.all([
         prisma.expense.findMany({
             where: {userId, occurredOn: {gte: start, lte: end}},
@@ -130,42 +128,42 @@ export async function getMonthlyOverview(
         prisma.income.findMany({
             where: {userId, occurredOn: {gte: start, lte: end}},
         }),
-    ])
+    ]);
 
     const totalExpenses = expenses.reduce((acc, expense) => {
-        const amount = decryptNumber(expense.amountEncrypted)
-        const splitBy = expense.group?.splitBy ?? 1
-        return acc + calculateImpactShare(amount, splitBy)
-    }, 0)
+        const amount = decryptNumber(expense.amountEncrypted);
+        const splitBy = expense.group?.splitBy ?? 1;
+        return acc + calculateImpactShare(amount, splitBy);
+    }, 0);
     const totalIncome = incomes.reduce(
         (acc, income) => acc + decryptNumber(income.amountEncrypted),
         0
-    )
+    );
 
     const categoryTotals = expenses.reduce<
         Record<
             string,
             {
-                id: string
-                label: string
-                color: string
-                value: number
+                id: string;
+                label: string;
+                color: string;
+                value: number;
             }
         >
     >((acc, expense) => {
-        const descriptor = ensureCategoryDescriptor(expense)
-        const key = descriptor.id
+        const descriptor = ensureCategoryDescriptor(expense);
+        const key = descriptor.id;
         acc[key] = acc[key] || {
             id: descriptor.id,
             label: descriptor.label,
             color: descriptor.color,
             value: 0,
-        }
-        const amount = decryptNumber(expense.amountEncrypted)
-        const splitBy = expense.group?.splitBy ?? 1
-        acc[key].value += calculateImpactShare(amount, splitBy)
-        return acc
-    }, {})
+        };
+        const amount = decryptNumber(expense.amountEncrypted);
+        const splitBy = expense.group?.splitBy ?? 1;
+        acc[key].value += calculateImpactShare(amount, splitBy);
+        return acc;
+    }, {});
 
     return {
         start,
@@ -174,7 +172,16 @@ export async function getMonthlyOverview(
         totalIncome,
         remainingBudget: totalIncome - totalExpenses,
         categoryTotals: Object.values(categoryTotals),
-    }
+    };
+}
+
+export async function getMonthlyOverview(
+    userId: string,
+    month: Date = new Date()
+) {
+    const start = startOfMonth(month)
+    const end = endOfMonth(month)
+    return getRangeOverview(userId, start, end)
 }
 
 export async function getAvailableBalanceSeries(
@@ -553,16 +560,17 @@ export async function simulateBudget(userId: string, input: ScenarioInput) {
 
 export async function getIncomeFlowGraph(
     userId: string,
-    month: Date = new Date()
+    params?: { preset?: RangePreset; start?: Date; end?: Date }
 ) {
+    const range = resolveRange(params)
     const [overview, incomes] = await Promise.all([
-        getMonthlyOverview(userId, month),
+        getRangeOverview(userId, range.start, range.end),
         prisma.income.findMany({
             where: {
                 userId,
                 occurredOn: {
-                    gte: startOfMonth(month),
-                    lte: endOfMonth(month),
+                    gte: range.start,
+                    lte: range.end,
                 },
             },
         }),

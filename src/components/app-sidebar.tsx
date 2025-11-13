@@ -33,34 +33,38 @@ import {
 
 const navigation = [
     {
-        label: "Workspace",
+        label: "General",
         items: [
             {title: "Home", href: "/", icon: Home},
-            {title: "Overview", href: "/overview", icon: LayoutDashboard},
-            {title: "Add expense", href: "/items", icon: Wallet},
+            {title: "Dashboard", href: "/overview", icon: LayoutDashboard},
             {title: "Expenses", href: "/expenses", icon: ListOrdered},
-            {title: "Analytics", href: "/analytics", icon: ChartSpline},
-            {title: "Feed", href: "/feed", icon: Activity},
-            {title: "Settings", href: "/settings", icon: Settings},
+            {title: "Income", href: "/income", icon: BadgeDollarSign},
+            {title: "Activity Feed", href: "/feed", icon: Activity},
         ],
     },
     {
-        label: "Automation",
+        label: "Planning",
         items: [
-            {title: "Automation feed", href: "/automation-feed", icon: Sparkles},
-            {title: "Recurring expenses", href: "/recurring", icon: Repeat2},
-            {title: "Income planning", href: "/income", icon: BadgeDollarSign},
-            {title: "Recurring Income Log", href: "/automation/recurring-income-log", icon: ListOrdered},
+            {title: "Add Expense", href: "/items", icon: Wallet},
+            {title: "Recurring", href: "/recurring", icon: Repeat2},
             {title: "Categories", href: "/categories", icon: Shield},
-            {title: "Scenario planner", href: "/analytics/scenario", icon: Sparkles},
+            {title: "Analytics", href: "/analytics", icon: ChartSpline},
+            {title: "Scenario Planner", href: "/analytics/scenario", icon: Sparkles},
         ],
     },
     {
-        label: "Data",
+        label: "System",
         items: [
-            {title: "CSV import", href: "/import", icon: UploadCloud},
-            {title: "API keys", href: "/api-keys", icon: KeyRound},
-            {title: "API docs", href: "/docs", icon: BookLock},
+            {title: "Automation Log", href: "/automation-feed", icon: Sparkles},
+            {
+                title: "Recurring Income Log",
+                href: "/automation/recurring-income-log",
+                icon: ListOrdered,
+            },
+            {title: "Import", href: "/import", icon: UploadCloud},
+            {title: "API Keys", href: "/api-keys", icon: KeyRound},
+            {title: "API Docs", href: "/docs", icon: BookLock},
+            {title: "Settings", href: "/settings", icon: Settings},
         ],
     },
 ]

@@ -169,7 +169,7 @@ export function AnalyticsDashboard({
                 fetch("/api/analytics/forecast"),
                 fetch("/api/analytics/anomalies"),
                 fetch(`/api/analytics/category-health?baselineMonths=${baselineMonths}`),
-                fetch("/api/analytics/income-flow"),
+                fetch(`/api/analytics/income-flow?preset=${preset}`),
             ])
             if (!forecastRes.ok) throw new Error("Forecast failed")
             if (!anomalyRes.ok) throw new Error("Anomalies failed")
@@ -681,12 +681,6 @@ function AnomalyCard({
                                         </p>
                                     </div>
                                 </div>
-                                <AnomalyChart
-                                    mean={anomaly.mean}
-                                    std={anomaly.std}
-                                    current={anomaly.current}
-                                    currency={currency}
-                                />
                             </li>
                         ))}
                     </ul>
