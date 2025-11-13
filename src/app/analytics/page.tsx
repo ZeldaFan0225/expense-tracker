@@ -65,7 +65,6 @@ export default async function AnalyticsPage() {
                 initialAnomalies={anomalies}
                 initialCategoryHealth={categoryHealth}
                 initialIncomeFlow={incomeFlow}
-                categories={categories}
                 currency={session.user.defaultCurrency}
             />
         </DashboardShell>

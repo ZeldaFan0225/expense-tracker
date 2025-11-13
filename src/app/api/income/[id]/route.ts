@@ -1,11 +1,11 @@
-import {NextResponse} from "next/server"
+import {NextRequest, NextResponse} from "next/server"
 import {auth} from "@/lib/auth-server"
 import {deleteIncome, updateIncome} from "@/lib/services/income-service"
 import {incomeUpdateSchema} from "@/lib/validation"
 
 export async function PATCH(
-    req: Request,
-    {params}: { params: { id: string } }
+    req: NextRequest,
+    context: { params: Promise<{ id: string }> }
 ) {
     const session = await auth()
     if (!session?.user) {
@@ -13,9 +13,10 @@ export async function PATCH(
     }
 
     try {
+        const {id} = await context.params
         const body = await req.json()
         const payload = incomeUpdateSchema.parse(body)
-        const updated = await updateIncome(session.user.id, params.id, payload)
+        const updated = await updateIncome(session.user.id, id, payload)
         return NextResponse.json(updated)
     } catch (error) {
         console.error(error)
@@ -24,8 +25,8 @@ export async function PATCH(
 }
 
 export async function DELETE(
-    req: Request,
-    {params}: { params: { id: string } }
+    req: NextRequest,
+    context: { params: Promise<{ id: string }> }
 ) {
     const session = await auth()
     if (!session?.user) {
@@ -33,7 +34,8 @@ export async function DELETE(
     }
 
     try {
-        await deleteIncome(session.user.id, params.id)
+        const {id} = await context.params
+        await deleteIncome(session.user.id, id)
         return NextResponse.json({success: true})
     } catch (error) {
         console.error(error)
